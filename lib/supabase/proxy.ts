@@ -52,6 +52,9 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
+    // API routes authenticate themselves (e.g. /api/sync via SYNC_SECRET); the
+    // session proxy must not redirect them to the login page.
+    !request.nextUrl.pathname.startsWith("/api") &&
     // The Style Guide is an internal design surface with no data; keep it
     // reachable without a session so it stays easy to review.
     !request.nextUrl.pathname.startsWith("/style-guide")
