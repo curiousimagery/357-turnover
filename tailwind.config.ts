@@ -1,5 +1,16 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
+/**
+ * Design tokens live here and in app/globals.css (the CSS variables).
+ * This is the styling contract. See DESIGN_TOKENS.md.
+ *
+ * Rules:
+ * - Only the four type tokens (display/heading/body/caption) in feature code.
+ * - Only the semantic + status color tokens. Never a raw palette color.
+ * - Spacing follows the base-8 scale (Tailwind's defaults are a superset).
+ * - No arbitrary values. Lint enforces this (see eslint-rules/design-tokens.mjs).
+ */
 export default {
   darkMode: ["class"],
   content: [
@@ -10,6 +21,14 @@ export default {
   ],
   theme: {
     extend: {
+      // The four-style type ramp. Size / line-height / weight are baked in,
+      // so `text-heading` alone yields the full style. (Section 6.2)
+      fontSize: {
+        display: ["24px", { lineHeight: "32px", fontWeight: "600" }],
+        heading: ["18px", { lineHeight: "24px", fontWeight: "600" }],
+        body: ["16px", { lineHeight: "24px", fontWeight: "400" }],
+        caption: ["13px", { lineHeight: "16px", fontWeight: "500" }],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -44,12 +63,22 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        chart: {
-          "1": "hsl(var(--chart-1))",
-          "2": "hsl(var(--chart-2))",
-          "3": "hsl(var(--chart-3))",
-          "4": "hsl(var(--chart-4))",
-          "5": "hsl(var(--chart-5))",
+        // Status tokens — these do real work in the UI. (Section 6.2)
+        urgent: {
+          DEFAULT: "hsl(var(--urgent))",
+          foreground: "hsl(var(--urgent-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          foreground: "hsl(var(--danger-foreground))",
         },
       },
       borderRadius: {
@@ -57,7 +86,11 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // One subtle card elevation token. Resist proliferation. (Section 6.2)
+      boxShadow: {
+        card: "0 1px 2px 0 hsl(220 22% 12% / 0.06), 0 1px 3px 0 hsl(220 22% 12% / 0.05)",
+      },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;

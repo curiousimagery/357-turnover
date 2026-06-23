@@ -51,7 +51,10 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname !== "/" &&
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
+    !request.nextUrl.pathname.startsWith("/auth") &&
+    // The Style Guide is an internal design surface with no data; keep it
+    // reachable without a session so it stays easy to review.
+    !request.nextUrl.pathname.startsWith("/style-guide")
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
