@@ -65,3 +65,16 @@ SECURITY DEFINER to avoid RLS recursion. First admin is set manually.
 
 `/style-guide` is added to the proxy's public allowlist (it has no data) so it
 stays easy to review.
+
+### Cache Components (PPR) turned off
+
+The starter shipped `cacheComponents: true` (Next 16). It broke the Vercel
+build: pages that read the session from cookies (home, settings, the shared
+header) accessed dynamic data outside a `<Suspense>` boundary, which Cache
+Components forbids during prerender. The build passed locally only because the
+first local build had no `.env.local` (so it skipped the Supabase call and went
+static); with env vars present it fails the same way locally — caught by building
+locally first. Chosen fix: disable Cache Components and let those pages render
+dynamically (the conventional App Router behavior). Simpler and more reliable for
+a 4-person app than wrapping every cookie read in Suspense; revisit only if we
+ever need the perf. (`next.config.ts`.)
