@@ -104,7 +104,7 @@ const SEED_TURNOVERS: TurnoverCardData[] = [
     isSameDay: false,
     status: "claimed",
     source: "airbnb",
-    assignee: { name: "Breanna", color: "emerald" },
+    assignee: { name: "Avery Stone", color: "emerald" },
   },
   {
     id: "3",
@@ -112,7 +112,7 @@ const SEED_TURNOVERS: TurnoverCardData[] = [
     isSameDay: false,
     status: "completed",
     source: "airbnb",
-    assignee: { name: "Tiffany", color: "violet" },
+    assignee: { name: "Jordan Lee", color: "violet" },
   },
   {
     id: "4",
@@ -162,7 +162,7 @@ export function StyleGuide() {
   const visibleTurnovers = SEED_TURNOVERS.filter((t) => {
     if (filter === "unclaimed")
       return t.status === "scheduled" && !t.assignee;
-    if (filter === "mine") return t.assignee?.name === "Breanna";
+    if (filter === "mine") return t.assignee?.name === "Avery Stone";
     return true;
   });
 
@@ -270,9 +270,9 @@ export function StyleGuide() {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <CleanerTag name="Breanna" color="emerald" withName />
-          <CleanerTag name="Tiffany Lopez" color="violet" withName />
-          <CleanerTag name="Dianna" color="amber" withName />
+          <CleanerTag name="Avery Stone" color="emerald" withName />
+          <CleanerTag name="Jordan Lee" color="violet" withName />
+          <CleanerTag name="Riley Fox" color="amber" withName />
         </div>
       </Section>
 
@@ -354,9 +354,9 @@ export function StyleGuide() {
                 <SelectValue placeholder="Pick a cleaner" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="breanna">Breanna</SelectItem>
-                <SelectItem value="tiffany">Tiffany</SelectItem>
-                <SelectItem value="dianna">Dianna</SelectItem>
+                <SelectItem value="avery">Avery Stone</SelectItem>
+                <SelectItem value="jordan">Jordan Lee</SelectItem>
+                <SelectItem value="riley">Riley Fox</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -430,7 +430,7 @@ export function StyleGuide() {
         <TagColorPicker value={tag} onChange={setTag} />
         <div className="flex items-center gap-2">
           <span className="text-caption text-muted-foreground">Preview</span>
-          <CleanerTag name="Breanna" color={tag} withName />
+          <CleanerTag name="Avery Stone" color={tag} withName />
         </div>
       </Section>
 
