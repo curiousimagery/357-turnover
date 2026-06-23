@@ -18,6 +18,7 @@ export type Reservation = {
   checkIn: string; // 'YYYY-MM-DD'
   checkOut: string; // 'YYYY-MM-DD'
   reservationUrl: string | null;
+  confirmationCode: string | null; // Airbnb code from the reservation URL
   rawSummary: string;
 };
 
@@ -25,6 +26,7 @@ export type DerivedTurnover = {
   turnoverDate: string; // 'YYYY-MM-DD', equals the reservation checkout
   bookingUid: string; // the reservation whose checkout creates it
   isSameDay: boolean;
+  confirmationCode: string | null; // rides along for display on the card
 };
 
 export function isReservation(event: IcalEvent): boolean {
@@ -55,6 +57,19 @@ export function extractReservationUrl(
   return m ? m[0].replace(/[).,]+$/, "") : null;
 }
 
+/** The Airbnb confirmation code — the last path segment of the reservation URL
+ *  (e.g. .../details/HMABC123 -> 'HMABC123'). It's the host-side booking
+ *  reference, handy for cross-checking in Airbnb. Null-safe. */
+export function extractConfirmationCode(
+  reservationUrl: string | null,
+): string | null {
+  if (!reservationUrl) return null;
+  const afterDetails = reservationUrl.match(/\/details\/([A-Za-z0-9]+)/);
+  if (afterDetails) return afterDetails[1];
+  const tail = reservationUrl.split(/[?#]/)[0].split("/").filter(Boolean).pop();
+  return tail && /^[A-Za-z0-9]{4,}$/.test(tail) ? tail : null;
+}
+
 /** Reservations only (blocks excluded), with malformed events skipped. */
 export function toReservations(events: IcalEvent[]): Reservation[] {
   const reservations: Reservation[] = [];
@@ -63,11 +78,13 @@ export function toReservations(events: IcalEvent[]): Reservation[] {
     const checkIn = normalizeDate(event.dtStart);
     const checkOut = normalizeDate(event.dtEnd); // DTEND = checkout, no minus-a-day
     if (!event.uid || !checkIn || !checkOut) continue; // defensive: skip malformed
+    const reservationUrl = extractReservationUrl(event.description);
     reservations.push({
       uid: event.uid,
       checkIn,
       checkOut,
-      reservationUrl: extractReservationUrl(event.description),
+      reservationUrl,
+      confirmationCode: extractConfirmationCode(reservationUrl),
       rawSummary: event.summary ?? RESERVATION_SUMMARY,
     });
   }
@@ -86,6 +103,7 @@ export function deriveTurnovers(
       turnoverDate: r.checkOut,
       bookingUid: r.uid,
       isSameDay: reservationCheckIns.has(r.checkOut),
+      confirmationCode: r.confirmationCode,
     });
   }
   return [...byUid.values()];

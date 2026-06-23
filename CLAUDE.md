@@ -77,8 +77,15 @@ npx supabase status         # local URLs + keys
 - **Phase 0 (done, deployed):** scaffold, design tokens + Style Guide, magic-link
   auth, `profiles` + trigger + RLS, settings with tag color. Live on Vercel +
   hosted Supabase.
-- **Phase 1 (built on `phase-1-schedule`, verified locally, not yet live):**
-  iCal parse/derive (pure + tested), `bookings`/`turnovers`/`sync_*` migration,
-  defensive idempotent reconcile (`lib/sync/`), `/api/sync` route (cron-triggered),
-  read-only `/schedule`. Go-live steps: `docs/PHASE1_GO_LIVE.md`.
-- **Next:** apply Phase 1 to hosted + wire pg_cron, then Phase 2 (claiming).
+- **Phase 1 (done, live):** iCal parse/derive (pure + tested),
+  `bookings`/`turnovers`/`sync_*` migration, defensive idempotent reconcile
+  (`lib/sync/`), `/api/sync` route (hourly pg_cron), read-only `/schedule`.
+- **Phase 2 (built on `phase-2-claiming`, verified locally, not yet live):**
+  `turnover_assignments` (`unique(turnover_id)` double-booking guard) + RLS;
+  claim/unclaim + admin assign/reassign/unassign actions
+  (`app/schedule/actions.ts`); interactive `/schedule` with cleaner tags and a
+  working All/Mine/Unclaimed filter (`components/schedule-list.tsx`); admin
+  `/cleaners` invite + activate/deactivate; manual turnovers; `confirmation_code`
+  on cards. Tested: double-booking guard (23505) + confirmation-code parse.
+- **Next:** apply the two Phase 2 migrations to hosted, set `NEXT_PUBLIC_SITE_URL`
+  (invite redirects), then Phase 3 (notifications).

@@ -20,13 +20,15 @@ export type TurnoverCardData = {
   isSameDay: boolean;
   status: TurnoverStatus;
   source: "airbnb" | "manual";
+  /** Airbnb confirmation code, for cross-reference. Null for manual turnovers. */
+  confirmationCode?: string | null;
   assignee?: { name: string; color?: string | null } | null;
 };
 
 /**
  * TurnoverCard — the schedule's first-class object (Section 6.3).
- * Same-day is unmistakable; the cleaner tag reads at a glance; the primary
- * action (claim) is one tap and thumb-reachable.
+ * Same-day is unmistakable; the cleaner tag reads at a glance; the action area
+ * (claim / release / reassign) is one tap and thumb-reachable.
  */
 export function TurnoverCard({
   turnover,
@@ -35,13 +37,14 @@ export function TurnoverCard({
   className,
 }: {
   turnover: TurnoverCardData;
-  /** Interactive claim/manage control. Falls back to a static Claim button. */
+  /** Interactive control(s): claim, release, or the admin reassign menu. */
   action?: React.ReactNode;
-  /** Read-only schedule (Phase 1): no claim affordance. */
+  /** Read-only schedule: no claim affordance. */
   readOnly?: boolean;
   className?: string;
 }) {
-  const { date, isSameDay, status, source, assignee } = turnover;
+  const { date, isSameDay, status, source, confirmationCode, assignee } =
+    turnover;
   const isOpen = status === "scheduled" && !assignee;
   const isActive = status === "scheduled" || status === "claimed";
 
@@ -87,18 +90,25 @@ export function TurnoverCard({
             Arrive 11:30–noon · finish by 4:00
           </p>
         )}
+
+        {confirmationCode && (
+          <p className="text-caption text-muted-foreground">
+            Airbnb · {confirmationCode}
+          </p>
+        )}
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-2">
-        {assignee ? (
+        {assignee && (
           <CleanerTag name={assignee.name} color={assignee.color} withName />
-        ) : isOpen && !readOnly ? (
-          (action ?? (
-            <Button size="touch" variant="default">
-              Claim
-            </Button>
-          ))
-        ) : null}
+        )}
+        {!readOnly &&
+          (action ??
+            (isOpen ? (
+              <Button size="touch" variant="default">
+                Claim
+              </Button>
+            ) : null))}
       </div>
     </Card>
   );

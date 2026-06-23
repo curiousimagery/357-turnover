@@ -164,6 +164,7 @@ export async function runSync(
         booking_out_id: bookingOutId,
         booking_in_id: inUid ? idByUid.get(inUid) ?? null : null,
         is_same_day: t.isSameDay,
+        confirmation_code: t.confirmationCode,
         status: "scheduled",
       };
     })

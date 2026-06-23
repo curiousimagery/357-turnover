@@ -8,6 +8,7 @@ import {
   deriveTurnovers,
   normalizeDate,
   extractReservationUrl,
+  extractConfirmationCode,
 } from "./derive";
 
 // NOTE: this fixture is a faithful reconstruction from the spec (Section 2) —
@@ -105,5 +106,26 @@ describe("reservation URL + guest phone handling", () => {
   it("extractReservationUrl is null-safe", () => {
     expect(extractReservationUrl(null)).toBeNull();
     expect(extractReservationUrl("no url here")).toBeNull();
+  });
+});
+
+describe("confirmation code (booking cross-reference)", () => {
+  it("pulls the code from the reservation URL's /details/ segment", () => {
+    expect(
+      extractConfirmationCode(
+        "https://www.airbnb.com/hosting/reservations/details/HMK1REDACTED",
+      ),
+    ).toBe("HMK1REDACTED");
+  });
+
+  it("is null-safe and ignores junk", () => {
+    expect(extractConfirmationCode(null)).toBeNull();
+    expect(extractConfirmationCode("not a url")).toBeNull();
+  });
+
+  it("rides onto the derived turnover for display", () => {
+    const turnovers = deriveTurnovers(toReservations(parseIcal(feed)));
+    const t = turnovers.find((t) => t.turnoverDate === "2026-06-25");
+    expect(t?.confirmationCode).toBe("HMK1REDACTED");
   });
 });

@@ -50,7 +50,9 @@ suite("runSync against local Supabase", () => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const wildcard = "00000000-0000-0000-0000-000000000000";
-    await supabase.from("turnovers").delete().neq("id", wildcard);
+    // Scope to airbnb rows so a concurrent manual-turnover test (shared local
+    // DB, parallel files) can't perturb these counts.
+    await supabase.from("turnovers").delete().eq("source", "airbnb");
     await supabase.from("bookings").delete().neq("id", wildcard);
     feed = await serve(fixture);
   });
@@ -66,6 +68,7 @@ suite("runSync against local Supabase", () => {
     const { data } = await supabase
       .from("turnovers")
       .select("turnover_date, is_same_day")
+      .eq("source", "airbnb")
       .returns<{ turnover_date: string; is_same_day: boolean }[]>();
     const byDate = new Map((data ?? []).map((t) => [t.turnover_date, t.is_same_day]));
     expect(byDate.size).toBe(3);
@@ -79,7 +82,8 @@ suite("runSync against local Supabase", () => {
     expect(out.added).toBe(0);
     const { count } = await supabase
       .from("turnovers")
-      .select("id", { count: "exact", head: true });
+      .select("id", { count: "exact", head: true })
+      .eq("source", "airbnb");
     expect(count).toBe(3);
   });
 

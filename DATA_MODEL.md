@@ -17,7 +17,15 @@ ids `uuid default gen_random_uuid()` unless noted; all tables have
   unique index on `turnovers(booking_out_id)` makes derivation idempotent (it's
   the sync upsert's ON CONFLICT target). Verified end-to-end against local
   Supabase (`lib/sync/reconcile.integration.test.ts`).
-- **Pending (Phase 2+):** the remaining tables below, added by phase.
+- **Implemented (Phase 2):** `turnover_assignments` (`unique (turnover_id)` —
+  the double-booking guard) + RLS (claim own / admin assigns / admin reassign).
+  Migration: `…20260623100000_assignments.sql`. A `confirmation_code` column was
+  added to `turnovers` (`…20260623110000_turnover_confirmation_code.sql`),
+  derived during sync from the booking's reservation URL and shown on cards.
+  Verified end-to-end (`lib/schedule/assignments.integration.test.ts`: a second
+  claim fails with 23505; reassign never duplicates). Payment fields
+  (`paid_at`, `amount`) and `bedding_taken` are deferred to later phases.
+- **Pending (Phase 3+):** the remaining tables below, added by phase.
 
 ## Tables (target schema)
 
@@ -33,12 +41,14 @@ ids `uuid default gen_random_uuid()` unless noted; all tables have
 - **turnovers** _(Phase 1)_ — the operational unit. `turnover_date`, `source`
   (`airbnb`|`manual`), `booking_out_id`, `booking_in_id`, `is_same_day`
   (recomputed every sync), `status`
-  (`scheduled`|`claimed`|`completed`|`cancelled`), `completed_at`, `notes`. Sync
+  (`scheduled`|`claimed`|`completed`|`cancelled`), `completed_at`, `notes`,
+  `confirmation_code` (Airbnb code, derived during sync; shown on cards). Sync
   only ever touches `airbnb` rows; never hard-deletes (marks cancelled).
 - **turnover_assignments** _(Phase 2)_ — who is doing it. `turnover_id`,
-  `cleaner_id`, `claimed_at`, `paid_at`, `amount` (admin+owner only),
-  `bedding_taken`. **`unique (turnover_id)`** — the single most important
-  constraint: it makes double-coverage impossible at the database level.
+  `cleaner_id`, `claimed_at`. **`unique (turnover_id)`** — the single most
+  important constraint: it makes double-coverage impossible at the database
+  level. `paid_at`, `amount` (admin+owner only), and `bedding_taken` are added
+  in later phases.
 - **linen_sets** _(Phase 5)_ — individual sheet/duvet sets. `kind`, `color`,
   `brand`, `label`, `state`
   (`on_beds`|`with_cleaner`|`clean_backup`|`in_wash`), `held_by`, `notes`.
