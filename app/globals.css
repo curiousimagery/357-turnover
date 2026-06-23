@@ -115,40 +115,39 @@
 
 /*
  * Cleaner tag color classes. Closed set; the user picks one in settings.
- * Defined here (not as Tailwind utilities) so the palette stays small and
- * cannot be combined into arbitrary new colors.
+ * Plain CSS (intentionally NOT inside a Tailwind @layer) so they are always
+ * emitted and never tree-shaken — the class names are applied dynamically from
+ * lib/cleaner-tags.ts, which Tailwind's content scan would otherwise miss.
  */
-@layer components {
-  .tag-rose {
-    background-color: hsl(var(--tag-rose));
-    color: hsl(0 0% 100%);
-  }
-  .tag-amber {
-    background-color: hsl(var(--tag-amber));
-    color: hsl(28 75% 14%);
-  }
-  .tag-emerald {
-    background-color: hsl(var(--tag-emerald));
-    color: hsl(0 0% 100%);
-  }
-  .tag-sky {
-    background-color: hsl(var(--tag-sky));
-    color: hsl(0 0% 100%);
-  }
-  .tag-violet {
-    background-color: hsl(var(--tag-violet));
-    color: hsl(0 0% 100%);
-  }
-  .tag-teal {
-    background-color: hsl(var(--tag-teal));
-    color: hsl(0 0% 100%);
-  }
-  .tag-slate {
-    background-color: hsl(var(--tag-slate));
-    color: hsl(0 0% 100%);
-  }
-  .tag-fuchsia {
-    background-color: hsl(var(--tag-fuchsia));
-    color: hsl(0 0% 100%);
-  }
+.tag-rose {
+  background-color: hsl(var(--tag-rose));
+  color: hsl(0 0% 100%);
+}
+.tag-amber {
+  background-color: hsl(var(--tag-amber));
+  color: hsl(28 75% 14%);
+}
+.tag-emerald {
+  background-color: hsl(var(--tag-emerald));
+  color: hsl(0 0% 100%);
+}
+.tag-sky {
+  background-color: hsl(var(--tag-sky));
+  color: hsl(0 0% 100%);
+}
+.tag-violet {
+  background-color: hsl(var(--tag-violet));
+  color: hsl(0 0% 100%);
+}
+.tag-teal {
+  background-color: hsl(var(--tag-teal));
+  color: hsl(0 0% 100%);
+}
+.tag-slate {
+  background-color: hsl(var(--tag-slate));
+  color: hsl(0 0% 100%);
+}
+.tag-fuchsia {
+  background-color: hsl(var(--tag-fuchsia));
+  color: hsl(0 0% 100%);
 }
