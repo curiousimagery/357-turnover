@@ -15,6 +15,8 @@ import type { TurnoverCardData } from "@/components/turnover-card";
 
 export const metadata = { title: "Schedule — Turnover" };
 
+type RawProfile = { id: string; display_name: string; color: string | null };
+type RawAssignment = { cleaner_id: string; profiles: RawProfile | RawProfile[] | null };
 type RawRow = {
   id: string;
   turnover_date: string;
@@ -22,15 +24,17 @@ type RawRow = {
   status: TurnoverCardData["status"];
   source: TurnoverCardData["source"];
   confirmation_code: string | null;
-  turnover_assignments: {
-    cleaner_id: string;
-    profiles: {
-      id: string;
-      display_name: string;
-      color: string | null;
-    } | null;
-  }[];
+  // PostgREST returns this as a single object (the unique(turnover_id)
+  // constraint makes it a one-to-one), but be defensive about array too.
+  turnover_assignments: RawAssignment | RawAssignment[] | null;
 };
+
+/** First element of a PostgREST embed, whether it came back as an object
+ *  (to-one) or an array (to-many). */
+function firstEmbed<T>(embed: T | T[] | null | undefined): T | null {
+  if (Array.isArray(embed)) return embed[0] ?? null;
+  return embed ?? null;
+}
 
 export default async function SchedulePage() {
   const supabase = await createClient();
@@ -75,7 +79,8 @@ export default async function SchedulePage() {
 
   const scheduleRows: ScheduleRow[] = ((rows ?? []) as unknown as RawRow[]).map(
     (t) => {
-      const assignee = t.turnover_assignments?.[0]?.profiles ?? null;
+      const assignment = firstEmbed(t.turnover_assignments);
+      const assignee = firstEmbed(assignment?.profiles);
       return {
         id: t.id,
         date: t.turnover_date,

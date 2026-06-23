@@ -100,4 +100,32 @@ suite("turnover_assignments double-booking guard", () => {
     expect(data?.length).toBe(1);
     expect(data?.[0]?.cleaner_id).toBe(carol);
   });
+
+  it("the schedule embed returns the holder's profile as a one-to-one OBJECT", async () => {
+    // This is the exact shape /schedule reads. The unique(turnover_id)
+    // constraint makes PostgREST embed it as a single object (not an array) —
+    // the page must not index it with [0]. Guards that regression.
+    const { data, error } = await supabase
+      .from("turnovers")
+      .select(
+        "id, turnover_assignments ( cleaner_id, profiles ( id, display_name, color ) )",
+      )
+      .eq("id", turnoverId)
+      .single();
+    expect(error).toBeNull();
+
+    const embed = (data as { turnover_assignments: unknown })
+      .turnover_assignments;
+    expect(embed).not.toBeNull();
+    expect(Array.isArray(embed)).toBe(false); // one-to-one => object
+
+    const assignment = embed as {
+      cleaner_id: string;
+      profiles: { display_name: string } | { display_name: string }[] | null;
+    };
+    const profile = Array.isArray(assignment.profiles)
+      ? assignment.profiles[0]
+      : assignment.profiles;
+    expect(profile?.display_name).toBeTruthy();
+  });
 });
