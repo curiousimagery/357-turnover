@@ -11,6 +11,12 @@ export function SiteHeader() {
             Turnover
           </Link>
           <Link
+            href="/schedule"
+            className="text-caption text-muted-foreground hover:text-foreground"
+          >
+            Schedule
+          </Link>
+          <Link
             href="/settings"
             className="text-caption text-muted-foreground hover:text-foreground"
           >

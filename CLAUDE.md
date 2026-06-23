@@ -64,14 +64,21 @@ for email (Phase 3+) · Vercel hosting. Everything on free tiers.
 ```bash
 npm run dev      # local dev server (http://localhost:3000)
 npm run lint     # ESLint incl. the design-token rules
-npm run build    # production build
+npm run build    # production build (run with .env.local present — matches Vercel)
+npm test         # vitest. Sync logic tests always run; the reconcile
+                 # integration test needs SUPABASE_URL + SUPABASE_SERVICE_KEY
 npx supabase start          # local Supabase (needs Docker)
-npx supabase migration new  # author a new migration
-npx supabase db reset       # apply all migrations to local db
+npx supabase db reset       # apply all migrations to the local db
+npx supabase status         # local URLs + keys
 ```
 
 ## Status
 
-Phase 0 (foundation) is built: scaffold, design tokens + Style Guide
-(`/style-guide`), magic-link auth, profiles migration with signup trigger + RLS,
-and settings with tag color. Phase 1 (live schedule) is next — see spec Section 8.
+- **Phase 0 (done, deployed):** scaffold, design tokens + Style Guide, magic-link
+  auth, `profiles` + trigger + RLS, settings with tag color. Live on Vercel +
+  hosted Supabase.
+- **Phase 1 (built on `phase-1-schedule`, verified locally, not yet live):**
+  iCal parse/derive (pure + tested), `bookings`/`turnovers`/`sync_*` migration,
+  defensive idempotent reconcile (`lib/sync/`), `/api/sync` route (cron-triggered),
+  read-only `/schedule`. Go-live steps: `docs/PHASE1_GO_LIVE.md`.
+- **Next:** apply Phase 1 to hosted + wire pg_cron, then Phase 2 (claiming).

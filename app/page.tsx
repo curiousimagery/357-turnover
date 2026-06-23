@@ -60,10 +60,15 @@ export default async function Home() {
           <CardHeader>
             <CardTitle className="text-heading">Schedule</CardTitle>
             <CardDescription className="text-caption">
-              Coming in Phase 1 — the live Airbnb calendar appears here as
-              turnovers, same-day ones unmistakable.
+              The live Airbnb calendar, as turnovers — same-day ones
+              unmistakable.
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <Button asChild size="touch">
+              <Link href="/schedule">View schedule</Link>
+            </Button>
+          </CardContent>
         </Card>
       </main>
     </div>

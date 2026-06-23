@@ -22,6 +22,20 @@ export function formatWeekday(iso: string): string {
   return WEEKDAY.format(parseDateOnly(iso));
 }
 
+/** Today's date ('YYYY-MM-DD') in property-local time. Same-day math and the
+ *  schedule's "upcoming" cutoff must use property time, not the server's UTC. */
+export function todayInPropertyTz(
+  tz: string = process.env.PROPERTY_TIMEZONE ?? "America/Los_Angeles",
+): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 /** "synced 3 min ago" style relative label from minutes elapsed. */
 export function formatRelativeMinutes(minutes: number): string {
   if (minutes < 1) return "just now";

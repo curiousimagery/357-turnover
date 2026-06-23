@@ -31,11 +31,14 @@ export type TurnoverCardData = {
 export function TurnoverCard({
   turnover,
   action,
+  readOnly = false,
   className,
 }: {
   turnover: TurnoverCardData;
   /** Interactive claim/manage control. Falls back to a static Claim button. */
   action?: React.ReactNode;
+  /** Read-only schedule (Phase 1): no claim affordance. */
+  readOnly?: boolean;
   className?: string;
 }) {
   const { date, isSameDay, status, source, assignee } = turnover;
@@ -89,7 +92,7 @@ export function TurnoverCard({
       <div className="flex shrink-0 flex-col items-end gap-2">
         {assignee ? (
           <CleanerTag name={assignee.name} color={assignee.color} withName />
-        ) : isOpen ? (
+        ) : isOpen && !readOnly ? (
           (action ?? (
             <Button size="touch" variant="default">
               Claim

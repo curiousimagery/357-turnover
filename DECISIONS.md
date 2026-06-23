@@ -66,6 +66,38 @@ SECURITY DEFINER to avoid RLS recursion. First admin is set manually.
 `/style-guide` is added to the proxy's public allowlist (it has no data) so it
 stays easy to review.
 
+## 2026-06-23 — Phase 1 (live schedule, read-only)
+
+### Sync runs as a Vercel API route, triggered by pg_cron + pg_net
+
+The fetch/parse/reconcile logic lives in our repo (`lib/sync/`) and runs as
+`/api/sync` on Vercel, so it's testable in TypeScript and reuses our code.
+Supabase Cron (`pg_cron` + `pg_net`) POSTs to it hourly with a shared
+`SYNC_SECRET`; that hourly DB call also keeps the free project awake. Chosen
+over a Deno Edge Function (which would fork the logic) and over Vercel Cron
+(Hobby is once/day). The endpoint writes with the service-role key (bypasses
+RLS for system writes). See `docs/PHASE1_GO_LIVE.md`.
+
+### Load-bearing logic is pure + tested; reconcile is thin
+
+Parsing, classification, date normalization, and turnover/same-day derivation
+are pure functions (`ical.ts`, `derive.ts`) unit-tested against a fixture
+(`sync.test.ts`) — the Kaitlyn end-date rule, blocks-excluded, and the Aug 31
+reservation-meets-block case. `reconcile.ts` only persists. The fixture is a
+reconstruction from the spec until the real tokenized feed is captured; the
+assertions hold either way. An opt-in integration test
+(`reconcile.integration.test.ts`) runs the whole pipeline against local Supabase.
+
+### Two bugs the local integration test caught (before prod)
+
+- `turnovers(booking_out_id)` was a *partial* unique index (`where … not null`),
+  which Postgres won't use as an ON CONFLICT target → upsert failed. Switched to
+  a plain unique index (NULLs are still distinct, so manual turnovers are fine).
+- New tables needed **explicit grants** — locally the migration role's tables
+  don't inherit Supabase's default privileges, so `service_role` got
+  "permission denied". Added explicit `GRANT`s so local and hosted behave
+  identically. This is why we build/verify locally before deploying.
+
 ### Cache Components (PPR) turned off
 
 The starter shipped `cacheComponents: true` (Next 16). It broke the Vercel

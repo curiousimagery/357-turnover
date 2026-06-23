@@ -10,7 +10,14 @@ ids `uuid default gen_random_uuid()` unless noted; all tables have
 - **Implemented (Phase 0):** `profiles` + `is_admin()` + signup trigger
   (`handle_new_user`) + privileged-column guard (`enforce_profile_update_guard`)
   + RLS. Migration: `supabase/migrations/20260622000000_init_profiles.sql`.
-- **Pending (Phase 1+):** all other tables below, added by phase.
+- **Implemented (Phase 1):** `bookings`, `turnovers`, `sync_runs`, `sync_state`
+  + RLS + explicit grants. Migration: `…20260623000000_schedule.sql`. The
+  `service_role` writes (sync engine, bypasses RLS); `authenticated` reads
+  `turnovers` + `sync_state`; `admin` reads `bookings` + `sync_runs`. A plain
+  unique index on `turnovers(booking_out_id)` makes derivation idempotent (it's
+  the sync upsert's ON CONFLICT target). Verified end-to-end against local
+  Supabase (`lib/sync/reconcile.integration.test.ts`).
+- **Pending (Phase 2+):** the remaining tables below, added by phase.
 
 ## Tables (target schema)
 

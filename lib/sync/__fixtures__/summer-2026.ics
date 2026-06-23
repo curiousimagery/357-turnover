@@ -1,0 +1,33 @@
+BEGIN:VCALENDAR
+PRODID:-//Airbnb Inc//Hosting Calendar 1.0.0//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+DTEND;VALUE=DATE:20260625
+DTSTART;VALUE=DATE:20260622
+UID:k1@airbnb.example
+SUMMARY:Reserved
+DESCRIPTION:Reservation URL: https://www.airbnb.com/hosting/reservations/d
+ etails/HMK1REDACTED\nPhone Number (Last 4 Digits): 1234
+END:VEVENT
+BEGIN:VEVENT
+DTEND;VALUE=DATE:20260628
+DTSTART;VALUE=DATE:20260625
+UID:k2@airbnb.example
+SUMMARY:Reserved
+DESCRIPTION:Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMK2REDACTED\nPhone Number (Last 4 Digits): 5678
+END:VEVENT
+BEGIN:VEVENT
+DTEND;VALUE=DATE:20260831
+DTSTART;VALUE=DATE:20260825
+UID:k3@airbnb.example
+SUMMARY:Reserved
+DESCRIPTION:Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMK3REDACTED\nPhone Number (Last 4 Digits): 9012
+END:VEVENT
+BEGIN:VEVENT
+DTEND;VALUE=DATE:20261012
+DTSTART;VALUE=DATE:20260831
+UID:b1@airbnb.example
+SUMMARY:Airbnb (Not available)
+END:VEVENT
+END:VCALENDAR
