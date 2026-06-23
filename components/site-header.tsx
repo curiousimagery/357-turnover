@@ -46,14 +46,16 @@ export async function SiteHeader() {
             href="/settings"
             className="text-caption text-muted-foreground hover:text-foreground"
           >
-            Settings
+            Account
           </Link>
-          <Link
-            href="/style-guide"
-            className="text-caption text-muted-foreground hover:text-foreground"
-          >
-            Style Guide
-          </Link>
+          {isAdmin && (
+            <Link
+              href="/style-guide"
+              className="text-caption text-muted-foreground hover:text-foreground"
+            >
+              Style Guide
+            </Link>
+          )}
         </nav>
         <AuthButton />
       </div>
