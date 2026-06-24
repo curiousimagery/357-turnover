@@ -33,16 +33,28 @@ export async function sendPendingNotifications(
 ): Promise<{ sent: number; failed: number }> {
   const { data: pending } = await supabase
     .from("notifications")
-    .select("id, recipient_id, title, body")
+    .select("id, recipient_id, type, title, body")
     .eq("channel", "email")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(limit);
   if (!pending || pending.length === 0) return { sent: 0, failed: 0 };
 
+  const userIds = [...new Set(pending.map((n) => n.recipient_id as string))];
+
+  // Email opt-outs: (user, type) pairs the recipient turned off for email.
+  const { data: muted } = await supabase
+    .from("notification_preferences")
+    .select("user_id, type")
+    .in("user_id", userIds)
+    .eq("email", false);
+  const emailMuted = new Set(
+    (muted ?? []).map((m) => `${m.user_id}|${m.type}`),
+  );
+
   // Resolve each recipient's current email once.
   const emailById = new Map<string, string | null>();
-  for (const id of new Set(pending.map((n) => n.recipient_id as string))) {
+  for (const id of userIds) {
     const { data } = await supabase.auth.admin.getUserById(id);
     emailById.set(id, data.user?.email ?? null);
   }
@@ -50,6 +62,14 @@ export async function sendPendingNotifications(
   let sent = 0;
   let failed = 0;
   for (const n of pending) {
+    // Opted out of email for this type — delivered in-app only; don't retry.
+    if (emailMuted.has(`${n.recipient_id}|${n.type}`)) {
+      await supabase
+        .from("notifications")
+        .update({ status: "sent", sent_at: new Date().toISOString() })
+        .eq("id", n.id);
+      continue;
+    }
     const to = emailById.get(n.recipient_id as string);
     if (!to) {
       await markFailed(supabase, n.id as string);

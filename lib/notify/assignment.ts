@@ -39,3 +39,34 @@ export async function notifyRemoved(
     dedupe_key: `unassigned:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
 }
+
+/** A turnover reopened (released/unclaimed) — tell the active cleaners it's open
+ *  to claim, except whoever just let it go. */
+export async function notifyAvailable(
+  admin: SupabaseClient,
+  args: { turnoverId: string; date: string; excludeCleanerId?: string | null },
+): Promise<void> {
+  const { data: cleaners } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("active", true)
+    .eq("role", "cleaner");
+  const recipients = (cleaners ?? [])
+    .map((c) => c.id as string)
+    .filter((id) => id !== args.excludeCleanerId);
+  if (recipients.length === 0) return;
+
+  const stamp = Date.now();
+  await admin.from("notifications").insert(
+    recipients.map((id) => ({
+      recipient_id: id,
+      type: "available",
+      channel: "email",
+      turnover_id: args.turnoverId,
+      title: "A turnover is open",
+      body: `The turnover on ${args.date} is open to claim.`,
+      status: "pending",
+      dedupe_key: `available:${args.turnoverId}:${id}:${stamp}`,
+    })),
+  );
+}

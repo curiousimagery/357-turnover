@@ -25,11 +25,22 @@ export async function SiteHeader() {
         .maybeSingle();
       isAdmin = profile?.role === "admin";
 
-      const { count } = await supabase
+      const { data: muted } = await supabase
+        .from("notification_preferences")
+        .select("type")
+        .eq("user_id", user.id)
+        .eq("in_app", false);
+      const mutedTypes = (muted ?? []).map((m) => m.type as string);
+
+      let countQuery = supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("recipient_id", user.id)
         .is("read_at", null);
+      if (mutedTypes.length > 0) {
+        countQuery = countQuery.not("type", "in", `(${mutedTypes.join(",")})`);
+      }
+      const { count } = await countQuery;
       unread = count ?? 0;
     }
   }

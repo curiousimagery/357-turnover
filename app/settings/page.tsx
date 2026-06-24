@@ -4,6 +4,10 @@ import { SiteHeader } from "@/components/site-header";
 import { SettingsForm } from "@/components/settings-form";
 import { EmailSettings } from "@/components/email-settings";
 import {
+  NotificationPreferences,
+  type PrefMap,
+} from "@/components/notification-preferences";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -18,6 +22,7 @@ import { DEFAULT_TAG_COLOR } from "@/lib/cleaner-tags";
 export default async function SettingsPage() {
   let canSave = false;
   let currentEmail = "";
+  let notifPrefs: PrefMap = {};
   let initial = {
     displayName: "",
     paymentPreference: "",
@@ -32,6 +37,16 @@ export default async function SettingsPage() {
     if (user) {
       canSave = true;
       currentEmail = user.email ?? "";
+      const { data: prefRows } = await supabase
+        .from("notification_preferences")
+        .select("type, in_app, email")
+        .eq("user_id", user.id);
+      notifPrefs = Object.fromEntries(
+        (prefRows ?? []).map((p) => [
+          p.type,
+          { in_app: p.in_app, email: p.email },
+        ]),
+      );
       const { data: profile } = await supabase
         .from("profiles")
         .select("display_name, payment_preference, color")
@@ -82,6 +97,20 @@ export default async function SettingsPage() {
           <Card>
             <CardContent className="pt-6">
               <EmailSettings currentEmail={currentEmail} />
+            </CardContent>
+          </Card>
+        )}
+
+        {canSave && (
+          <Card>
+            <CardContent className="flex flex-col gap-4 pt-6">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-heading">Notifications</h2>
+                <p className="text-caption text-muted-foreground">
+                  Choose how you hear about each kind of update.
+                </p>
+              </div>
+              <NotificationPreferences initial={notifPrefs} />
             </CardContent>
           </Card>
         )}

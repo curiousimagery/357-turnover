@@ -77,3 +77,34 @@ export async function updateEmail(newEmail: string): Promise<SaveProfileResult> 
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+/** Toggle one channel (in_app / email) for one notification type. Missing row =
+ *  both on, so we upsert and set only the toggled column. */
+export async function setNotificationPreference(input: {
+  type: string;
+  channel: "in_app" | "email";
+  value: boolean;
+}): Promise<SaveProfileResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You need to be signed in." };
+  if (input.channel !== "in_app" && input.channel !== "email") {
+    return { ok: false, error: "Unknown channel." };
+  }
+
+  const payload: {
+    user_id: string;
+    type: string;
+    in_app?: boolean;
+    email?: boolean;
+  } = { user_id: user.id, type: input.type };
+  payload[input.channel] = input.value;
+
+  const { error } = await supabase
+    .from("notification_preferences")
+    .upsert(payload, { onConflict: "user_id,type" });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

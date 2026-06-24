@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyAssigned, notifyRemoved } from "@/lib/notify/assignment";
+import {
+  notifyAssigned,
+  notifyRemoved,
+  notifyAvailable,
+} from "@/lib/notify/assignment";
 
 /**
  * Claiming / assignment actions (Section 5.3). The unique(turnover_id)
@@ -86,6 +90,26 @@ export async function unclaimTurnover(
     .eq("cleaner_id", user.id);
 
   if (error) return { ok: false, error: error.message };
+
+  // Reopened — let the other active cleaners know it's open.
+  try {
+    const { data: trow } = await supabase
+      .from("turnovers")
+      .select("turnover_date")
+      .eq("id", turnoverId)
+      .maybeSingle();
+    const date = (trow?.turnover_date as string | undefined) ?? null;
+    if (date) {
+      await notifyAvailable(createAdminClient(), {
+        turnoverId,
+        date,
+        excludeCleanerId: user.id,
+      });
+    }
+  } catch (e) {
+    console.error("release notice failed:", e);
+  }
+
   revalidatePath("/schedule");
   return { ok: true };
 }
@@ -177,10 +201,22 @@ export async function unassignTurnover(
     .eq("turnover_id", turnoverId);
   if (error) return { ok: false, error: error.message };
 
-  if (prevCleanerId && prevCleanerId !== gate.userId && date) {
+  if (date) {
     try {
       const admin = createAdminClient();
-      await notifyRemoved(admin, { turnoverId, date, cleanerId: prevCleanerId });
+      if (prevCleanerId && prevCleanerId !== gate.userId) {
+        await notifyRemoved(admin, {
+          turnoverId,
+          date,
+          cleanerId: prevCleanerId,
+        });
+      }
+      // Reopened — tell the other active cleaners it's up for grabs.
+      await notifyAvailable(admin, {
+        turnoverId,
+        date,
+        excludeCleanerId: prevCleanerId,
+      });
     } catch (e) {
       console.error("unassign notice failed:", e);
     }

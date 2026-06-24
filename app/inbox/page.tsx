@@ -14,12 +14,23 @@ export default async function InboxPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  const { data: rows } = await supabase
+  const { data: muted } = await supabase
+    .from("notification_preferences")
+    .select("type")
+    .eq("user_id", user.id)
+    .eq("in_app", false);
+  const mutedTypes = (muted ?? []).map((m) => m.type as string);
+
+  let listQuery = supabase
     .from("notifications")
     .select("id, type, title, body, created_at, read_at")
     .eq("recipient_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
+  if (mutedTypes.length > 0) {
+    listQuery = listQuery.not("type", "in", `(${mutedTypes.join(",")})`);
+  }
+  const { data: rows } = await listQuery;
 
   const now = Date.now();
   const items: InboxItem[] = (rows ?? []).map((n) => ({
