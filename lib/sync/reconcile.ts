@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseIcal } from "./ical";
 import { toReservations, deriveTurnovers, type Reservation } from "./derive";
+import { enqueueSyncNotifications } from "../notify/enqueue";
 
 export type SyncOutcome = {
   status: "success" | "skipped" | "failed";
@@ -150,6 +151,16 @@ export async function runSync(
     cancelled = missingIds.length;
   }
 
+  // 5b. Snapshot turnover + assignment state BEFORE the upsert so we can diff
+  // for notifications afterward. Read-only; if it errors we just skip notifying.
+  const { data: beforeTurnovers } = await supabase
+    .from("turnovers")
+    .select("id, booking_out_id, turnover_date, is_same_day")
+    .not("booking_out_id", "is", null);
+  const { data: beforeAssignments } = await supabase
+    .from("turnover_assignments")
+    .select("turnover_id, cleaner_id");
+
   // 6. Derive + upsert turnovers (airbnb). Recompute same-day every run.
   const turnovers = deriveTurnovers(reservations);
   const checkInByDate = sameDayCheckInIndex(reservations);
@@ -189,6 +200,29 @@ export async function runSync(
       .update({ status: "cancelled" })
       .in("booking_out_id", missingIds)
       .neq("status", "completed");
+  }
+
+  // 7b. Enqueue notifications for what changed. This is a convenience layer —
+  // the schedule is already reconciled above, so a failure here must never fail
+  // the sync. (Also releases claims on a moved date.)
+  if (beforeTurnovers) {
+    try {
+      await enqueueSyncNotifications(supabase, {
+        before: beforeTurnovers.map((t) => ({
+          id: t.id as string,
+          bookingOutId: t.booking_out_id as string,
+          date: t.turnover_date as string,
+          isSameDay: t.is_same_day as boolean,
+        })),
+        assignments: (beforeAssignments ?? []).map((a) => ({
+          turnoverId: a.turnover_id as string,
+          cleanerId: a.cleaner_id as string,
+        })),
+        cancelledBookingIds: missingIds,
+      });
+    } catch (e) {
+      console.error("notification enqueue failed (sync unaffected):", e);
+    }
   }
 
   // 8. Heartbeat + run record.
