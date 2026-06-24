@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyAssigned, notifyRemoved } from "@/lib/notify/assignment";
 
 /**
  * Claiming / assignment actions (Section 5.3). The unique(turnover_id)
@@ -97,6 +99,20 @@ export async function assignTurnover(
   if (!gate.ok) return gate;
   if (!cleanerId) return { ok: false, error: "Pick a cleaner." };
 
+  // Who held it before + the date — for the notices below.
+  const { data: existing } = await gate.supabase
+    .from("turnover_assignments")
+    .select("cleaner_id")
+    .eq("turnover_id", turnoverId)
+    .maybeSingle();
+  const prevCleanerId = (existing?.cleaner_id as string | undefined) ?? null;
+  const { data: trow } = await gate.supabase
+    .from("turnovers")
+    .select("turnover_date")
+    .eq("id", turnoverId)
+    .maybeSingle();
+  const date = (trow?.turnover_date as string | undefined) ?? null;
+
   // Upsert on the unique turnover_id: insert if open, reassign if already held.
   const { error } = await gate.supabase
     .from("turnover_assignments")
@@ -108,8 +124,28 @@ export async function assignTurnover(
       },
       { onConflict: "turnover_id" },
     );
-
   if (error) return { ok: false, error: error.message };
+
+  // Notify the affected cleaners (never the admin about their own action).
+  // Best effort — a notice failure must not fail the assignment.
+  if (date) {
+    try {
+      const admin = createAdminClient();
+      if (cleanerId !== prevCleanerId && cleanerId !== gate.userId) {
+        await notifyAssigned(admin, { turnoverId, date, cleanerId });
+      }
+      if (
+        prevCleanerId &&
+        prevCleanerId !== cleanerId &&
+        prevCleanerId !== gate.userId
+      ) {
+        await notifyRemoved(admin, { turnoverId, date, cleanerId: prevCleanerId });
+      }
+    } catch (e) {
+      console.error("assignment notice failed:", e);
+    }
+  }
+
   revalidatePath("/schedule");
   return { ok: true };
 }
@@ -121,12 +157,35 @@ export async function unassignTurnover(
   const gate = await requireAdmin();
   if (!gate.ok) return gate;
 
+  // Who held it + the date, before we clear it (for the notice).
+  const { data: existing } = await gate.supabase
+    .from("turnover_assignments")
+    .select("cleaner_id")
+    .eq("turnover_id", turnoverId)
+    .maybeSingle();
+  const prevCleanerId = (existing?.cleaner_id as string | undefined) ?? null;
+  const { data: trow } = await gate.supabase
+    .from("turnovers")
+    .select("turnover_date")
+    .eq("id", turnoverId)
+    .maybeSingle();
+  const date = (trow?.turnover_date as string | undefined) ?? null;
+
   const { error } = await gate.supabase
     .from("turnover_assignments")
     .delete()
     .eq("turnover_id", turnoverId);
-
   if (error) return { ok: false, error: error.message };
+
+  if (prevCleanerId && prevCleanerId !== gate.userId && date) {
+    try {
+      const admin = createAdminClient();
+      await notifyRemoved(admin, { turnoverId, date, cleanerId: prevCleanerId });
+    } catch (e) {
+      console.error("unassign notice failed:", e);
+    }
+  }
+
   revalidatePath("/schedule");
   return { ok: true };
 }

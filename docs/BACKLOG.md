@@ -32,8 +32,10 @@ schedule.
 | Edited booking (date moved) | previously-assigned cleaner | your date changed; new date is open (**releases the claim**) |
 | Edited booking (date moved) | all cleaners | new date available |
 | **Relaxed → same-day flip** | assigned cleaner (+ admin) | **heads up: now a same-day turnover** (high priority) |
+| Admin assigns / reassigns | the newly-assigned cleaner | you've been assigned {date} |
+| Admin reassigns / unassigns | the removed cleaner | you've been taken off {date} |
 | Reminder, 24–72h before | the assigned cleaner | reminder: you're on for {date} |
-| Payment sent | cleaner who did it | you've been paid for {date} |
+| Payment sent | cleaner who did it | you've been paid for {date} (Phase 6) |
 
 Open questions: reminder cadence (per-user vs. 2-day default); whether
 cancel/edit on **unclaimed** turnovers should stay quiet (probably yes).
