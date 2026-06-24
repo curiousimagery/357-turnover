@@ -44,10 +44,15 @@ against fixture pairs with the sender mocked (zero real email), then (2) one
 end-to-end run against a fixture feed + a real test inbox. Never touch the live
 calendar.
 
-## Later / nice-to-have
+## UI polish (revisit together later)
 
+- **Text wrapping** on the header (long "357 Oasis Turnovers" wordmark + nav) and
+  the `/welcome` page wraps awkwardly on small screens. Tighten responsive
+  layout when we do a UI polish pass.
 - **Confetti** on `/welcome` (today it's a tasteful static 🎉 — add motion only
   if it's worth a dependency or a little globals.css).
+
+## Later / nice-to-have
 - **Yearly pay totals per cleaner** (Phase 6, admin): sum payments by cleaner +
   calendar year for 1099 / tax season. Exportable.
 - App naming variety in body copy (property = "357 Oasis" / "Central District

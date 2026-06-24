@@ -41,6 +41,18 @@ export async function claimTurnover(turnoverId: string): Promise<ActionResult> {
   const { supabase, user } = await currentUser();
   if (!user) return { ok: false, error: "Please sign in." };
 
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("active")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (me && me.active === false) {
+    return {
+      ok: false,
+      error: "Your account isn't active — ask Daniel to reactivate you.",
+    };
+  }
+
   const { error } = await supabase
     .from("turnover_assignments")
     .insert({ turnover_id: turnoverId, cleaner_id: user.id });

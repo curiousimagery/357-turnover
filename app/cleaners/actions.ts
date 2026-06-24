@@ -86,7 +86,18 @@ export async function setCleanerActive(
     .eq("id", cleanerId);
 
   if (error) return { ok: false, error: error.message };
+
+  // Deactivating off-boards them: release any turnovers they hold so coverage
+  // returns to the pool (never leave a turnover on an inactive person).
+  if (!active) {
+    await gate.supabase
+      .from("turnover_assignments")
+      .delete()
+      .eq("cleaner_id", cleanerId);
+  }
+
   revalidatePath("/cleaners");
+  revalidatePath("/schedule");
   return { ok: true };
 }
 
