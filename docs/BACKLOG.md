@@ -29,7 +29,7 @@ schedule.
 | --- | --- | --- |
 | New booking | all active cleaners | new turnover date available to claim |
 | Cancelled booking | cleaner who claimed it | your turnover on {date} was cancelled |
-| Edited booking (date moved) | previously-assigned cleaner | your date changed; new date is open |
+| Edited booking (date moved) | previously-assigned cleaner | your date changed; new date is open (**releases the claim**) |
 | Edited booking (date moved) | all cleaners | new date available |
 | **Relaxed → same-day flip** | assigned cleaner (+ admin) | **heads up: now a same-day turnover** (high priority) |
 | Reminder, 24–72h before | the assigned cleaner | reminder: you're on for {date} |
@@ -37,6 +37,21 @@ schedule.
 
 Open questions: reminder cadence (per-user vs. 2-day default); whether
 cancel/edit on **unclaimed** turnovers should stay quiet (probably yes).
+
+**What actually counts as a change (the feed is date-only).** The Airbnb iCal
+export carries only dates (DTSTART/DTEND), UID, summary, and a description — no
+times, no guest count. So:
+- **Checkout date moves** → the turnover date moves → release the existing claim
+  + notify (we can't assume the cleaner is free on the new date). `date_changed`
+  keys on the *checkout* date specifically.
+- **Booking disappears** → `cancelled`.
+- **Same-date changes** (extra guest, early check-in, etc.) → either absent from
+  the feed or don't move the date → **no notification, claim stays put.** Decided:
+  same date = cleaner is still on.
+- **Early check-in time** isn't in the feed (date-only), so it can't drive a
+  notification from the calendar. If we ever want "your check-in moved earlier"
+  for the assigned cleaner, it's a manual coordination feature (Phase 6), and it
+  would *update* (not release) the assignment.
 
 **Safe testing:** sync reads `AIRBNB_ICAL_URL`, and we already serve controlled
 `.ics` fixtures over HTTP in tests — so we (1) unit-test "diff → notifications"
@@ -46,6 +61,10 @@ calendar.
 
 ## UI polish (revisit together later)
 
+- **Deactivated-cleaner affordance.** Today an inactive cleaner is blocked from
+  claiming but the app gives no clear signal *why*. Add an obvious state — likely
+  hide the schedule behind a friendly "your account is paused — contact Daniel"
+  lock-out screen — so they're not left guessing or hitting claim errors.
 - **Text wrapping** on the header (long "357 Oasis Turnovers" wordmark + nav) and
   the `/welcome` page wraps awkwardly on small screens. Tighten responsive
   layout when we do a UI polish pass.
