@@ -18,7 +18,7 @@
   Until then, the workaround stands: invited accounts exist, so cleaners can sign
   in via `/auth/login`. Redo on the hosted project at go-live.
 
-## Phase 3 — Notifications (next up to build)
+## Phase 3 — Notifications (BUILT on `phase-2-polish`, not yet deployed)
 
 Channels: in-app + email (Resend) now; web push later. Driven by the sync diff
 (added / changed / cancelled), which reconcile already computes. **Not
@@ -72,6 +72,36 @@ calendar.
   layout when we do a UI polish pass.
 - **Confetti** on `/welcome` (today it's a tasteful static 🎉 — add motion only
   if it's worth a dependency or a little globals.css).
+
+## Cross-cutting (do before/with a real rollout)
+
+- **End-to-end test pass.** Walk common scenarios as admin + cleaner: claim race,
+  reassign, date move, cancellation, same-day flip, deactivate-with-claims,
+  invite/first-run, email delivery. Catch functional bugs, UX dead-ends, and copy
+  problems. Build a short scripted checklist.
+- **UI / look-and-feel pass.** Define the visual personality, fix the text-wrap
+  issues (header wordmark + nav, /welcome), tidy responsive layout, add small
+  playful flourishes (e.g. real /welcome confetti). Keep the token contract.
+- **Rotate the Resend key** (it passed through chat) — see security note.
+
+## Phase 4 — Closeout & feedback (planned)
+
+- **"Before you leave" closeout checklist** — Daniel to provide the item content;
+  mark-complete flow; admin notified on completion.
+- **Guest feedback** (cleaner → admin): cleanliness, damages, missing items, free
+  note. Provide qualitative prompts / helper examples to make leaving feedback
+  easy and consistent.
+- **Admin → cleaner feedback notes** with per-cleaner history.
+- **Per-cleaner views over time**: a screen to review a cleaner's feedback and
+  history.
+
+## Phase 6 — Payments (planned)
+
+- **Payment status** per turnover; per-cleaner privacy.
+- **Yearly pay totals per cleaner** (1099 / tax) — already noted.
+- **Rates model**: a default rate per cleaner (e.g. $120) with a **per-turnover
+  override** (e.g. $200 for a deep clean). Capture amount + reason on the
+  assignment. (Planning note — not for now.)
 
 ## Later / nice-to-have
 
