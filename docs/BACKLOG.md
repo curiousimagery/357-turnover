@@ -84,16 +84,35 @@ calendar.
   playful flourishes (e.g. real /welcome confetti). Keep the token contract.
 - **Rotate the Resend key** (it passed through chat) — see security note.
 
-## Phase 4 — Closeout & feedback (planned)
+## Phase 4 — Closeout & feedback (decided; content in docs/content/)
 
-- **"Before you leave" closeout checklist** — Daniel to provide the item content;
-  mark-complete flow; admin notified on completion.
-- **Guest feedback** (cleaner → admin): cleanliness, damages, missing items, free
-  note. Provide qualitative prompts / helper examples to make leaving feedback
-  easy and consistent.
-- **Admin → cleaner feedback notes** with per-cleaner history.
-- **Per-cleaner views over time**: a screen to review a cleaner's feedback and
-  history.
+- **Checklist & inventory items** — admin-editable tables (`checklist_items`,
+  `inventory_items`) with three fields each: **name** (bold), **description**
+  (always visible), **helper** (tooltip/sub-text, optional). Plus a `section`/
+  group and `position`. Lightweight in-app editor (add / remove / reorder /
+  toggle active). Seed content: `docs/content/closeout-and-inventory.md`.
+- **Closeout flow** — per-turnover the cleaner ticks items off (completion is a
+  join: turnover × item). Mark-complete notifies the admin.
+- **Guest feedback** (cleaner → admin, to help Daniel rate the guest): a **free-
+  text note** + a **5-star cleanliness rating**. Prompt the note with: how clean
+  overall? any problem areas? anything broken/stained/damaged? were
+  garbage/recycle/compost handled right? any hint of house-rule breaks (smoking
+  paraphernalia, a party, strong residual fragrance)?
+- **Cleaner notes** (admin → cleaner): free text tied to a turnover (so it
+  cross-references the date + booking/confirmation code), visible only to the
+  admin and that cleaner. **Implemented as a notification** of a new type
+  (`cleaner_note`) so it reuses the inbox + email engine; the inbox gains a
+  filter to show just notes. Adding a note emails the cleaner.
+- **Per-cleaner history** — a screen to review a cleaner's notes + feedback over
+  time.
+
+## Notification preferences (with Phase 4; touches the notify engine)
+
+- Per-user, per-type **channel subscriptions** in Account settings: choose
+  email and/or in-app for each notification type (e.g. a cleaner wants email for
+  new-turnover + cancellation, but cleaner-notes in-app only). The sender reads
+  these prefs before emailing; the inbox always keeps everything. Default: all
+  on. (Today every notification emails — this makes it opt-out per type.)
 
 ## Phase 6 — Payments (planned)
 
