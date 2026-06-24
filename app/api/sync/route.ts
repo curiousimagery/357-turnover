@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runSync } from "@/lib/sync/reconcile";
+import { enqueueReminders } from "@/lib/notify/reminders";
 import { sendPendingNotifications, senderConfigFromEnv } from "@/lib/notify/send";
 
 /**
@@ -36,6 +37,14 @@ async function handle(req: NextRequest) {
   try {
     const supabase = createAdminClient();
     const outcome = await runSync(supabase, icalUrl);
+
+    // Enqueue reminders for claimed turnovers coming up. Defensive — never fail
+    // the sync over a notification.
+    try {
+      await enqueueReminders(supabase);
+    } catch (e) {
+      console.error("reminder enqueue failed (sync unaffected):", e);
+    }
 
     // Deliver any pending emails. Never let delivery break the sync response.
     let delivery: { sent: number; failed: number } | undefined;
