@@ -8,9 +8,21 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
-import { inviteCleaner, setCleanerActive } from "@/app/cleaners/actions";
+import {
+  inviteCleaner,
+  setCleanerActive,
+  deleteCleaner,
+} from "@/app/cleaners/actions";
 
 export type CleanerRow = {
   id: string;
@@ -23,7 +35,8 @@ export type CleanerRow = {
 /**
  * Admin cleaner management (Section 5.12). Invite pre-provisions an account and
  * emails a sign-in link; the activate toggle controls who appears in the assign
- * menu and can claim — we never hard-delete a person.
+ * menu and can claim. Delete forever (behind a confirm dialog) hard-removes an
+ * account — mainly to purge test cleaners.
  */
 export function CleanersManager({
   people,
@@ -34,6 +47,7 @@ export function CleanersManager({
 }) {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<CleanerRow | null>(null);
   const [pending, startTransition] = useTransition();
 
   function onInvite(e: React.FormEvent) {
@@ -55,8 +69,24 @@ export function CleanersManager({
       const result = await setCleanerActive(person.id, !person.active);
       if (result.ok) {
         toast.success(
-          person.active ? `${person.name} deactivated` : `${person.name} reactivated`,
+          person.active
+            ? `${person.name} deactivated`
+            : `${person.name} reactivated`,
         );
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function onConfirmDelete() {
+    const person = pendingDelete;
+    if (!person) return;
+    startTransition(async () => {
+      const result = await deleteCleaner(person.id);
+      if (result.ok) {
+        toast.success(`${person.name} deleted`);
+        setPendingDelete(null);
       } else {
         toast.error(result.error);
       }
@@ -123,20 +153,68 @@ export function CleanersManager({
                   </div>
                 </div>
                 {person.id !== currentUserId && person.role !== "admin" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => onToggleActive(person)}
-                  >
-                    {person.active ? "Deactivate" : "Reactivate"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {!person.active && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => setPendingDelete(person)}
+                      >
+                        Delete forever
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => onToggleActive(person)}
+                    >
+                      {person.active ? "Deactivate" : "Reactivate"}
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
           ))}
         </Card>
       </div>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-heading">
+              Delete {pendingDelete?.name} forever?
+            </DialogTitle>
+            <DialogDescription className="text-caption">
+              This permanently removes their account. Any turnovers they claimed
+              go back to unclaimed. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="touch"
+              onClick={() => setPendingDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="touch"
+              disabled={pending}
+              onClick={onConfirmDelete}
+            >
+              {pending ? "Deleting…" : "Delete forever"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

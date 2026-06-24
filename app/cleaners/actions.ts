@@ -56,7 +56,7 @@ export async function inviteCleaner(input: {
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { display_name: displayName || email.split("@")[0] },
-    redirectTo: `${origin}/auth/confirm?next=/schedule`,
+    redirectTo: `${origin}/auth/confirm?next=/welcome`,
   });
 
   if (error) {
@@ -86,6 +86,40 @@ export async function setCleanerActive(
     .eq("id", cleanerId);
 
   if (error) return { ok: false, error: error.message };
+  revalidatePath("/cleaners");
+  return { ok: true };
+}
+
+/** Permanently delete an account (mainly to purge test cleaners). Frees any
+ *  turnovers they hold (back to unclaimed), then hard-deletes the auth user —
+ *  the profile cascades. Guarded: never self, never another admin. */
+export async function deleteCleaner(cleanerId: string): Promise<ActionResult> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate;
+  if (cleanerId === gate.userId) {
+    return { ok: false, error: "You can't delete your own account." };
+  }
+
+  const { data: target } = await gate.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", cleanerId)
+    .maybeSingle();
+  if (target?.role === "admin") {
+    return { ok: false, error: "Can't delete an admin account." };
+  }
+
+  // Release their claims first so the FK to profiles doesn't block the delete
+  // (and the turnovers return to the unclaimed pool).
+  await gate.supabase
+    .from("turnover_assignments")
+    .delete()
+    .eq("cleaner_id", cleanerId);
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.deleteUser(cleanerId);
+  if (error) return { ok: false, error: error.message };
+
   revalidatePath("/cleaners");
   return { ok: true };
 }

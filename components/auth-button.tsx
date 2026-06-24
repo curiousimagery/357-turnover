@@ -12,10 +12,19 @@ export async function AuthButton() {
     const user = data?.claims;
 
     if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.sub as string)
+        .maybeSingle();
+      const label =
+        profile?.display_name ??
+        (user.email as string | undefined)?.split("@")[0] ??
+        "Signed in";
       return (
         <div className="flex items-center gap-2">
           <span className="hidden text-caption text-muted-foreground sm:inline">
-            {user.email}
+            {label}
           </span>
           <LogoutButton />
         </div>
