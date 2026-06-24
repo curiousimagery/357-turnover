@@ -1,0 +1,42 @@
+# Nightly database backup -> GitHub artifact (zero-cost; Section 3.4).
+#
+# HOW TO INSTALL: GitHub couldn't accept this via our push (the credential lacks
+# the `workflow` scope), so add it yourself — it takes a minute:
+#   GitHub repo -> Actions tab -> "New workflow" -> "set up a workflow yourself"
+#   -> name it backup.yml -> paste everything BELOW this comment block -> Commit.
+#
+# Then add the secret it needs: Settings -> Secrets and variables -> Actions ->
+# New repository secret -> SUPABASE_DB_URL = your Supabase direct connection
+# string (Settings -> Database -> Connection string / URI, port 5432, password
+# included). Match postgresql-client-NN to your Supabase Postgres major version.
+# See docs/RELIABILITY.md.
+# ---------------------------------------------------------------------------
+name: Nightly DB backup
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC ~ 1-2am Pacific
+  workflow_dispatch: {}
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Postgres client
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update && sudo apt-get install -y postgresql-client-16
+
+      - name: Dump
+        run: |
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
+            --no-owner --no-privileges \
+            -f "backup-$(date -u +%Y%m%d).sql"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup-*.sql
+          retention-days: 90
