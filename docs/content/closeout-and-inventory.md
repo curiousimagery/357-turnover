@@ -7,13 +7,31 @@ leave" versions are merged here). Each item has the three fields we agreed on:
 - **Description** — always visible; what to actually do.
 - **Helper** — optional detail, shown as a tooltip/“info” or small sub-text.
 
-This becomes the seed for the admin-editable `checklist_items` and
-`inventory_items` tables. Daniel: review the voice and trim anything wrong — this
-is the draft to react to, not the final word.
+**What seeds the app:** only the **Before you leave** and **Inventory** sections
+below feed the admin-editable `checklist_items` / `inventory_items` tables. The
+**Full cleaning checklist** is comprehensive reference — it is NOT the
+per-turnover cheat sheet and is not seeded. Daniel: review the voice and trim
+anything wrong — this is the draft to react to, not the final word.
 
 ---
 
-## Closeout checklist
+## Before you leave (the closeout cheat sheet — seeds `checklist_items`)
+
+- **Laundry** — Check the washer and dryer (and lint trap) for finished or unfinished loads; pack up anything to be washed off-site.
+- **Cabinet lights** — Put the under-cabinet lights back in place. _Helper: Make sure the switch is set to "G."_
+- **Test the lamps** — Use the remotes (living area + each bedroom) to turn every lamp on and off, including the salt lamps. _Helper: If a light doesn't respond, find its power switch and turn it on, then turn it off again with the remote._
+- **Coffee** — Set out a fresh bag of coffee for the next guest. _Helper: If a guest left an open bag, leave it on the airlock shelf for me._
+- **Flowers** — Replace the fresh flowers by the coffee if any are available in the garden.
+- **Windows** — Set the windows for the next guest. _Helper: Same-day check-in and 60–75°F with no rain → leave open. Below ~55°F → close and leave a space heater on in the living room set to 70°F. No one coming same day → close._
+- **Power down** — Turn everything off except the air purifier (turn it on if it's off).
+- **Outside** — Tidy the exterior entry: pick up any garbage and check if anything needs attention.
+- **Text Daniel** — Let me know how clean the guest left it, anything broken, and any low/missing inventory.
+
+---
+
+## Full cleaning checklist (reference only — NOT seeded)
+
+The complete turnover walkthrough, kept for reference.
 
 ### On arrival
 
