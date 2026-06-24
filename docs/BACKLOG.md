@@ -72,6 +72,10 @@ calendar.
   if it's worth a dependency or a little globals.css).
 
 ## Later / nice-to-have
+
+- **Email send retry/backoff.** A failed Resend send currently marks the row
+  `failed` (no retry); the in-app inbox still shows it. Add transient-vs-permanent
+  handling (leave 5xx/network as `pending` to retry; fail only on 4xx).
 - **Yearly pay totals per cleaner** (Phase 6, admin): sum payments by cleaner +
   calendar year for 1099 / tax season. Exportable.
 - App naming variety in body copy (property = "357 Oasis" / "Central District
