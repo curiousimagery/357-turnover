@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { CleanersManager, type CleanerRow } from "@/components/cleaners-manager";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Cleaners — Turnover" };
+export const metadata = { title: "Cleaners — 357 Oasis Turnovers" };
 
 export default async function CleanersPage() {
   const supabase = await createClient();

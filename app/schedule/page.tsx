@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { todayInPropertyTz } from "@/lib/dates";
 import type { TurnoverCardData } from "@/components/turnover-card";
 
-export const metadata = { title: "Schedule — Turnover" };
+export const metadata = { title: "Schedule — 357 Oasis Turnovers" };
 
 type RawProfile = { id: string; display_name: string; color: string | null };
 type RawAssignment = { cleaner_id: string; profiles: RawProfile | RawProfile[] | null };

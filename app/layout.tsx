@@ -10,8 +10,8 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Turnover — 357 26th Ave",
-  description: "Turnover coordination for the basement unit.",
+  title: "357 Oasis Turnovers",
+  description: "Cleaning turnover schedule for the 357 Oasis Airbnb.",
 };
 
 const geistSans = Geist({

@@ -2,7 +2,7 @@ import { SiteHeader } from "@/components/site-header";
 import { StyleGuide } from "@/components/style-guide";
 
 export const metadata = {
-  title: "Style Guide — Turnover",
+  title: "Style Guide — 357 Oasis Turnovers",
 };
 
 export default function StyleGuidePage() {

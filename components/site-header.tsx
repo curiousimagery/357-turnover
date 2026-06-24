@@ -26,7 +26,7 @@ export async function SiteHeader() {
       <div className="mx-auto flex h-16 w-full max-w-2xl items-center justify-between gap-4 px-4">
         <nav className="flex items-center gap-4">
           <Link href="/" className="text-heading">
-            Turnover
+            357 Oasis Turnovers
           </Link>
           <Link
             href="/schedule"
