@@ -4,9 +4,61 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyAdminsCompleted } from "@/lib/notify/assignment";
+import {
+  notifyAdminsCompleted,
+  notifyCleanerNote,
+} from "@/lib/notify/assignment";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/** Admin leaves a private note for the turnover's assigned cleaner. */
+export async function addCleanerNote(input: {
+  turnoverId: string;
+  note: string;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (me?.role !== "admin") return { ok: false, error: "Admins only." };
+
+  const note = input.note.trim();
+  if (!note) return { ok: false, error: "Write a note first." };
+
+  const { data: turnover } = await supabase
+    .from("turnovers")
+    .select("turnover_date")
+    .eq("id", input.turnoverId)
+    .maybeSingle();
+  const { data: assignment } = await supabase
+    .from("turnover_assignments")
+    .select("cleaner_id")
+    .eq("turnover_id", input.turnoverId)
+    .maybeSingle();
+  const cleanerId = assignment?.cleaner_id as string | undefined;
+  if (!cleanerId) {
+    return { ok: false, error: "No cleaner is assigned to this turnover." };
+  }
+
+  try {
+    await notifyCleanerNote(createAdminClient(), {
+      turnoverId: input.turnoverId,
+      date: (turnover?.turnover_date as string | undefined) ?? "this",
+      cleanerId,
+      note,
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Send failed." };
+  }
+  revalidatePath(`/turnover/${input.turnoverId}`);
+  return { ok: true };
+}
 
 /**
  * Mark a turnover complete and (optionally) file guest feedback. Gated to the

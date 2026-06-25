@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -142,7 +143,12 @@ export function CleanersManager({
               {i > 0 && <Separator />}
               <div className="flex items-center justify-between gap-4 p-4">
                 <div className="flex items-center gap-3">
-                  <CleanerTag name={person.name} color={person.color} withName />
+                  <Link
+                    href={`/cleaners/${person.id}`}
+                    className="hover:underline"
+                  >
+                    <CleanerTag name={person.name} color={person.color} withName />
+                  </Link>
                   <div className="flex items-center gap-2">
                     {person.role === "admin" && (
                       <StatusBadge tone="outline">Admin</StatusBadge>

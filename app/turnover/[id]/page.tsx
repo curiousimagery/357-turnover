@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
 import { CloseoutActions } from "@/components/closeout-actions";
+import { CleanerNoteForm } from "@/components/cleaner-note-form";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { formatMonthDay, formatWeekday } from "@/lib/dates";
@@ -122,6 +123,16 @@ export default async function TurnoverDetailPage({
           <Card className="flex flex-col gap-3 p-6">
             <p className="text-body text-foreground">Done with this turnover?</p>
             <CloseoutActions turnoverId={turnover.id as string} />
+          </Card>
+        )}
+
+        {isAdmin && assignee && (
+          <Card className="flex flex-col gap-4 p-6">
+            <h2 className="text-heading">Note for the cleaner</h2>
+            <CleanerNoteForm
+              turnoverId={turnover.id as string}
+              cleanerName={assignee.display_name}
+            />
           </Card>
         )}
 

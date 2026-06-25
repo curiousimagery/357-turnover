@@ -100,6 +100,24 @@ export async function notifyAdminsReleased(
   );
 }
 
+/** Admin leaves a private note for the cleaner about a turnover (cross-refs the
+ *  date via the linked turnover). Reuses the inbox + email engine. */
+export async function notifyCleanerNote(
+  admin: SupabaseClient,
+  args: { turnoverId: string; date: string; cleanerId: string; note: string },
+): Promise<void> {
+  await admin.from("notifications").insert({
+    recipient_id: args.cleanerId,
+    type: "cleaner_note",
+    channel: "email",
+    turnover_id: args.turnoverId,
+    title: `A note from Daniel — ${args.date} turnover`,
+    body: args.note,
+    status: "pending",
+    dedupe_key: `cleaner_note:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
+  });
+}
+
 /** Tell the admins a turnover was marked complete. */
 export async function notifyAdminsCompleted(
   admin: SupabaseClient,

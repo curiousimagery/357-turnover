@@ -35,6 +35,7 @@ export function InboxList({ items }: { items: InboxItem[] }) {
   const [wasUnread] = useState(
     () => new Set(items.filter((i) => !i.readAt).map((i) => i.id)),
   );
+  const [filter, setFilter] = useState<"all" | "notes">("all");
 
   useEffect(() => {
     if (wasUnread.size > 0) {
@@ -69,9 +70,30 @@ export function InboxList({ items }: { items: InboxItem[] }) {
     );
   }
 
+  const shown =
+    filter === "notes"
+      ? items.filter((i) => i.type === "cleaner_note")
+      : items;
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={filter === "all" ? "secondary" : "ghost"}
+            onClick={() => setFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "notes" ? "secondary" : "ghost"}
+            onClick={() => setFilter("notes")}
+          >
+            Notes
+          </Button>
+        </div>
         <Button
           size="sm"
           variant="ghost"
@@ -82,7 +104,14 @@ export function InboxList({ items }: { items: InboxItem[] }) {
         </Button>
       </div>
 
-      {items.map((item) => {
+      {shown.length === 0 ? (
+        <Card className="p-6">
+          <p className="text-caption text-muted-foreground">
+            {filter === "notes" ? "No notes." : "Nothing here."}
+          </p>
+        </Card>
+      ) : (
+        shown.map((item) => {
         const isNew = wasUnread.has(item.id);
         const urgent = item.type === "became_same_day";
         return (
@@ -129,8 +158,9 @@ export function InboxList({ items }: { items: InboxItem[] }) {
               <X />
             </Button>
           </Card>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 }
