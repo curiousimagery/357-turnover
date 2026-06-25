@@ -74,6 +74,14 @@ export async function SiteHeader() {
               Checklist
             </Link>
           )}
+          {isAdmin && (
+            <Link
+              href="/test"
+              className="text-caption text-muted-foreground hover:text-foreground"
+            >
+              Test
+            </Link>
+          )}
           <Link
             href="/settings"
             className="text-caption text-muted-foreground hover:text-foreground"
