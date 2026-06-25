@@ -122,6 +122,29 @@ calendar.
   override** (e.g. $200 for a deep clean). Capture amount + reason on the
   assignment. (Planning note — not for now.)
 
+## Phase 4 follow-ups (from testing feedback)
+
+- **Account settings consolidation.** Three sections with mixed save patterns
+  (two save buttons + one autosave) feels disjointed — unify into one coherent
+  page with a consistent save model.
+- **Near-real-time notifications.** Today the badge/inbox update on refresh
+  (adequate, single-user-at-a-time). To never show stale state: a Supabase
+  Realtime subscription on `notifications` (filtered to the recipient) that
+  bumps the badge + list live. Lowish priority.
+- **Email deliverability.** The one delivered email hit spam (`onboarding@resend.dev`,
+  no domain auth). Verify a Resend **domain** with SPF/DKIM/DMARC and set
+  `NOTIFY_FROM` to it — fixes spam AND unblocks delivery to the `+alias` cleaner
+  addresses (sandbox only delivers to your own address).
+- **Faster email.** Emails currently flush on the hourly sync. Options: a
+  dedicated ~15-min "drain" cron hitting a notify endpoint, or send-on-enqueue
+  for high-priority types. (The /test page has a manual "send now" for testing.)
+- **Per-item closeout persistence.** The closeout checklist is a reference list;
+  ticks aren't persisted per turnover. Add a completions join if we want a
+  recorded, item-by-item checkoff.
+- **Richer spoof tool.** Today /test injects sample notifications. A fuller
+  harness could inject/shift/cancel a *test booking* and run the real sync diff
+  end to end.
+
 ## Later / nice-to-have
 
 - **Email send retry/backoff.** A failed Resend send currently marks the row
