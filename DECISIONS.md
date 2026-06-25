@@ -76,7 +76,8 @@ Supabase Cron (`pg_cron` + `pg_net`) POSTs to it hourly with a shared
 `SYNC_SECRET`; that hourly DB call also keeps the free project awake. Chosen
 over a Deno Edge Function (which would fork the logic) and over Vercel Cron
 (Hobby is once/day). The endpoint writes with the service-role key (bypasses
-RLS for system writes). See `docs/PHASE1_GO_LIVE.md`.
+RLS for system writes). See `docs/GO_LIVE.md` (Phase 1's original go-live notes
+are archived in `docs/archive/`).
 
 ### Load-bearing logic is pure + tested; reconcile is thin
 
@@ -110,3 +111,47 @@ locally first. Chosen fix: disable Cache Components and let those pages render
 dynamically (the conventional App Router behavior). Simpler and more reliable for
 a 4-person app than wrapping every cookie read in Suspense; revisit only if we
 ever need the perf. (`next.config.ts`.)
+
+## 2026-06-24 — Phases 3–6 + a spec/code reconciliation
+
+### Cleaner notes ride the `notifications` table, not a `cleaner_notes` table
+
+Spec 5.14 / 4.1 describe a durable, acknowledgeable `cleaner_notes` table. We
+implemented admin→cleaner notes as `notifications` rows (`type='cleaner_note'`)
+instead, reusing the inbox + email engine and the per-cleaner page. Trade-off:
+one-way, not editable, no acknowledge. Adequate for now; if we need durable,
+two-way notes we add the table later. Tracked in `docs/BACKLOG.md`.
+
+### Payments live in their own tables (`payments`, `cleaner_rates`)
+
+Not as `paid_at`/`amount` columns on `turnover_assignments` (spec 4.1) and not as
+a `default_rate` on `profiles`. Both `profiles` and `turnover_assignments` are
+world-readable (names/colors/claims power the schedule), so amounts and rates
+would leak. Separate tables with admin-or-owner RLS keep money private. One
+`payments` row per turnover (`unique`); `cleaner_rates` keyed by cleaner.
+
+### Closeout checklist/inventory are reference sheets, not the low-stock workflow
+
+`checklist_items` + `inventory_items` are admin-editable cheat sheets (name /
+description / helper) the cleaner reads at closeout. They are **not** the spec's
+`supply_items` + `inventory_flags` per-turnover "running low" flagging, which is
+deferred. `guest_feedback` was trimmed to cleanliness + note (dropped the spec's
+`damages`/`missing_items` columns) to keep the form lean.
+
+### Three spec features deferred to backlog (not cut)
+
+Coordination requests (5.10), inventory running-low flags (5.7), and maintenance
+flags (5.8) are specified but unbuilt. Reason: avoid adding complexity before we
+know the real granularity. The planned near-term move is a single generic,
+admin+cleaner-editable **turnover notes** field (growing `turnovers.notes`),
+which likely covers the coordination need without new tables.
+
+### Docs reorg / declutter
+
+Consolidated the deploy steps into one living `docs/GO_LIVE.md` (superseding the
+stale `PUNCH_LIST.md` and the per-phase go-live docs); archived
+`PHASE1_GO_LIVE.md` + `PHASE2_GO_LIVE.md` to `docs/archive/`; rewrote `README.md`
+(was raw Supabase starter boilerplate) to describe this app; refreshed
+`BACKLOG.md` to future-only; updated `DATA_MODEL.md` to the as-built schema; and
+added an Implementation Status note to the spec. Goal: the repo holds the
+codebase, accurate docs of it, and actionable "what's next" — nothing spent.

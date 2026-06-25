@@ -7,90 +7,109 @@ ids `uuid default gen_random_uuid()` unless noted; all tables have
 
 ## Status
 
+This documents **what the migrations actually create**, which diverges from the
+spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
+`supabase/migrations/`.
+
 - **Implemented (Phase 0):** `profiles` + `is_admin()` + signup trigger
   (`handle_new_user`) + privileged-column guard (`enforce_profile_update_guard`)
-  + RLS. Migration: `supabase/migrations/20260622000000_init_profiles.sql`.
+  + RLS. `…20260622000000_init_profiles.sql`.
 - **Implemented (Phase 1):** `bookings`, `turnovers`, `sync_runs`, `sync_state`
-  + RLS + explicit grants. Migration: `…20260623000000_schedule.sql`. The
-  `service_role` writes (sync engine, bypasses RLS); `authenticated` reads
-  `turnovers` + `sync_state`; `admin` reads `bookings` + `sync_runs`. A plain
-  unique index on `turnovers(booking_out_id)` makes derivation idempotent (it's
-  the sync upsert's ON CONFLICT target). Verified end-to-end against local
-  Supabase (`lib/sync/reconcile.integration.test.ts`).
+  + RLS + explicit grants (`…20260623000000_schedule.sql`). A plain unique index
+  on `turnovers(booking_out_id)` is the sync upsert's ON CONFLICT target.
+  Verified end-to-end (`lib/sync/reconcile.integration.test.ts`).
 - **Implemented (Phase 2):** `turnover_assignments` (`unique (turnover_id)` —
-  the double-booking guard) + RLS (claim own / admin assigns / admin reassign).
-  Migration: `…20260623100000_assignments.sql`. A `confirmation_code` column was
-  added to `turnovers` (`…20260623110000_turnover_confirmation_code.sql`),
-  derived during sync from the booking's reservation URL and shown on cards.
-  Verified end-to-end (`lib/schedule/assignments.integration.test.ts`: a second
-  claim fails with 23505; reassign never duplicates). Payment fields
-  (`paid_at`, `amount`) and `bedding_taken` are deferred to later phases.
-- **Pending (Phase 3+):** the remaining tables below, added by phase.
+  the double-booking guard) + RLS (`…20260623100000_assignments.sql`).
+  `confirmation_code` added to `turnovers` (`…110000`), derived during sync.
+  Verified (`lib/schedule/assignments.integration.test.ts`: second claim → 23505).
+- **Implemented (Phase 3):** `notifications` (idempotent outbox, `dedupe_key`
+  unique) `…20260624000000`; `read_at` `…010000`; `archived_at` `…040000`;
+  `notification_preferences` (per-user, per-type in_app/email) `…030000`.
+- **Implemented (Phase 4):** `checklist_items` + `inventory_items` (admin-editable
+  closeout cheat sheets) `…020000`; `guest_feedback` `…050000`. **Cleaner notes
+  are not a table** — they're `notifications` rows with `type='cleaner_note'`.
+- **Built on `phase-5-6`, not yet merged:** `payments` + `cleaner_rates`
+  (`…060000`); `linen_sets` (`…070000`).
+- **Not built (deferred to backlog):** `supply_items`, `inventory_flags`,
+  `maintenance_flags`, `requests`, and a dedicated `cleaner_notes` table. The
+  spec still describes these; see `docs/BACKLOG.md` for their status.
 
-## Tables (target schema)
+## Tables (as built)
 
-- **profiles** — one row per user, FK to `auth.users(id)`. `display_name` (not
-  null), `role` (`admin`|`cleaner`, default `cleaner`), `payment_preference`
-  (admin+self only), `color` (tag palette key), `active`. Initials derived in the
-  app, not stored.
-- **bookings** _(Phase 1)_ — raw reservations from the iCal feed (not blocks).
-  `uid` unique, `check_in`, `check_out`, `status` (`active`|`cancelled`),
-  `raw_summary` (expected `Reserved`), `reservation_url` (admin-only via RLS),
-  `last_seen_at`. The guest phone last-4 is intentionally not stored. System
-  writes only; cleaners use turnovers, not raw bookings.
-- **turnovers** _(Phase 1)_ — the operational unit. `turnover_date`, `source`
+- **profiles** _(P0)_ — one row per user, FK to `auth.users(id)`. `display_name`
+  (not null), `role` (`admin`|`cleaner`), `payment_preference` (admin+self only),
+  `color` (tag palette key), `active`. Initials derived in the app.
+- **bookings** _(P1)_ — raw reservations from the feed (not blocks). `uid`
+  unique, `check_in`, `check_out`, `status` (`active`|`cancelled`),
+  `raw_summary`, `reservation_url` (admin-only), `last_seen_at`. Guest phone
+  last-4 intentionally not stored. System writes only.
+- **turnovers** _(P1)_ — the operational unit. `turnover_date`, `source`
   (`airbnb`|`manual`), `booking_out_id`, `booking_in_id`, `is_same_day`
   (recomputed every sync), `status`
-  (`scheduled`|`claimed`|`completed`|`cancelled`), `completed_at`, `notes`,
-  `confirmation_code` (Airbnb code, derived during sync; shown on cards). Sync
-  only ever touches `airbnb` rows; never hard-deletes (marks cancelled).
-- **turnover_assignments** _(Phase 2)_ — who is doing it. `turnover_id`,
-  `cleaner_id`, `claimed_at`. **`unique (turnover_id)`** — the single most
-  important constraint: it makes double-coverage impossible at the database
-  level. `paid_at`, `amount` (admin+owner only), and `bedding_taken` are added
-  in later phases.
-- **linen_sets** _(Phase 5)_ — individual sheet/duvet sets. `kind`, `color`,
-  `brand`, `label`, `state`
+  (`scheduled`|`claimed`|`completed`|`cancelled`), `completed_at`, `notes`
+  (admin-set free text, currently used for manual turnovers), `confirmation_code`.
+  Sync only touches `airbnb` rows; never hard-deletes.
+- **turnover_assignments** _(P2)_ — who is doing it. `turnover_id`, `cleaner_id`,
+  `claimed_at`. **`unique (turnover_id)`** makes double-coverage impossible at
+  the DB level. _(Payment moved to its own `payments` table, not columns here.)_
+- **notifications** _(P3)_ — channel-agnostic outbox. `recipient_id`, `channel`
+  (`in_app`|`email`|`web_push`), `type`, `title`, `body`, `turnover_id`,
+  `status` (`pending`|`sent`|`failed`|`read`), `dedupe_key` (unique → idempotent
+  enqueue), `read_at`, `archived_at`, `sent_at`. Recipient reads/updates own;
+  system writes.
+- **notification_preferences** _(P3)_ — per-user, per-type channel toggles
+  (`in_app`, `email`). Sender + badge respect these; the inbox always keeps all.
+- **checklist_items** / **inventory_items** _(P4)_ — admin-editable cheat sheets
+  (the "before you leave" checklist + inventory reference). Three display fields
+  (`name`, `description`, `helper`) + `position` + `active`. **Note:** these are
+  reference content, *not* the spec's per-turnover `supply_items`/`inventory_flags`
+  low-stock workflow.
+- **guest_feedback** _(P4)_ — cleaner→admin about the guest. `turnover_id`,
+  `cleanliness` (1–5), `note`, `created_by`. **Note:** the spec's `damages` /
+  `missing_items` columns were not built.
+- **payments** _(P6, phase-5-6)_ — one per turnover (`unique`). `cleaner_id`,
+  `amount`, `paid_at`. Admin writes; admin + owning cleaner read (private amounts).
+- **cleaner_rates** _(P6, phase-5-6)_ — `cleaner_id` (PK), `default_rate`. Its
+  own table (not `profiles`, which is world-readable) so rates stay private.
+- **linen_sets** _(P5, phase-5-6)_ — individual sheet/duvet sets. `kind`
+  (`sheet_set`|`duvet_set`), `label` (not null), `color`, `brand`, `state`
   (`on_beds`|`with_cleaner`|`clean_backup`|`in_wash`), `held_by`, `notes`.
-- **guest_feedback** _(Phase 4)_ — cleaner→admin about the guest. `cleanliness`
-  (1–5), `note`, `damages`, `missing_items`.
-- **cleaner_notes** _(Phase 4)_ — admin→cleaner durable feedback. `cleaner_id`
-  (recipient), `author_id`, `body`, `acknowledged_at`.
-- **supply_items** / **inventory_flags** _(Phase 5)_ — supply catalog and
-  low-stock flags (no counts, just "running low").
-- **maintenance_flags** _(Phase 5)_ — durable-goods / replacement flags.
-- **requests** _(Phase 6)_ — coordination: `type`
-  (`luggage_drop`|`early_checkin`|`other`), `message`, `target_time`, `status`
-  (`pending`|`yes`|`no`|`conditional`), `response_note`, …
-- **notifications** _(Phase 3)_ — channel-agnostic outbox. `recipient_id`,
-  `channel` (`in_app`|`email`|`web_push`), `type`, `title`, `body`,
-  `turnover_id`, `status` (`pending`|`sent`|`failed`|`read`), …
-- **sync_runs** / **sync_state** _(Phase 1/3)_ — sync observability + heartbeat
-  (`last_synced_at`, `last_success_at`).
-
-See spec Section 4.1 for the exact DDL of pending tables.
+  Everyone reads + moves state/holder; only admins add/remove.
+- **sync_runs** / **sync_state** _(P1)_ — sync observability + heartbeat
+  (`last_synced_at`, `last_success_at`), backing `/api/health`.
 
 ## Permission matrix (RLS) — summary
 
 `Y` = allowed, `own` = only own rows, blank = denied.
 
-| Table                | Action                              | Admin | Cleaner            |
-| -------------------- | ----------------------------------- | ----- | ------------------ |
-| profiles             | read                                | Y     | Y (names + color)  |
-| profiles             | update own (color, payment)         | Y     | own                |
-| profiles             | create / deactivate / set role      | Y     |                    |
-| bookings             | read / write                        | Y/sys |                    |
-| turnovers            | read                                | Y     | Y                  |
-| turnovers            | create / edit / delete              | Y     |                    |
-| turnovers            | mark complete                       | Y     | own (if assigned)  |
-| turnover_assignments | claim / unclaim                     | Y     | own                |
-| turnover_assignments | reassign / set paid / amount        | Y     |                    |
-| turnover_assignments | read amount / paid                  | Y     | own                |
-| guest_feedback       | create / read                       | Y     | own (if assigned)  |
-| cleaner_notes        | create / read all                   | Y     | read own / ack     |
-| supply/inventory/... | create flags / read                 | Y     | own (if assigned)  |
-| requests             | create / respond / read             | Y     | own turnovers      |
-| notifications        | read / mark read                    | own   | own                |
+| Table                         | Action                         | Admin | Cleaner           |
+| ----------------------------- | ------------------------------ | ----- | ----------------- |
+| profiles                      | read                           | Y     | Y (names + color) |
+| profiles                      | update own (color, payment)    | Y     | own               |
+| profiles                      | create / deactivate / set role | Y     |                   |
+| bookings                      | read / write                   | Y/sys |                   |
+| turnovers                     | read                           | Y     | Y                 |
+| turnovers                     | create / edit / delete         | Y     |                   |
+| turnovers                     | mark complete                  | Y     | own (if assigned) |
+| turnover_assignments          | claim / unclaim                | Y     | own               |
+| turnover_assignments          | reassign / unassign            | Y     |                   |
+| guest_feedback                | create / read                  | Y     | own               |
+| checklist_items / inventory   | read                           | Y     | Y                 |
+| checklist_items / inventory   | create / edit / delete         | Y     |                   |
+| payments                      | read                           | Y     | own               |
+| payments                      | write (mark paid / amount)     | Y     |                   |
+| cleaner_rates                 | read                           | Y     | own               |
+| cleaner_rates                 | write                          | Y     |                   |
+| linen_sets                    | read / move state              | Y     | Y                 |
+| linen_sets                    | add / remove sets              | Y     |                   |
+| notifications                 | read / mark read / archive     | own   | own               |
+| notification_preferences      | read / update                  | own   | own               |
+
+Cleaner notes (admin→cleaner) ride the `notifications` table (`type='cleaner_note'`),
+so they obey the notifications policy: the recipient cleaner reads their own;
+the admin authors via the service role. Deferred tables (`supply_items`,
+`inventory_flags`, `maintenance_flags`, `requests`, a `cleaner_notes` table)
+carry the spec's intended policies in Section 4.2 when built.
 
 ### Phase 0 RLS notes (profiles)
 

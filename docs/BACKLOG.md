@@ -1,156 +1,127 @@
-# Backlog
+# Backlog — what's next
 
-## Done (landed on `phase-2-polish`)
+Forward-looking only. Shipped work lives in git history, `CLAUDE.md` (status),
+and `DATA_MODEL.md`. Steps to deploy the current build are in `docs/GO_LIVE.md`.
 
-- App named **357 Oasis Turnovers** (wordmark + page titles).
-- Home (`/`) redirects to `/schedule` or `/auth/login`; placeholder gone.
-- Style Guide link admin-only; nav "Settings" → "Account".
-- Header shows **display name** (not email).
-- **Account settings** page: heading + view/change email (`updateEmail`).
-- **First-run `/welcome`** page (celebratory + next steps); invites land here.
-- Cleaners admin: **Delete forever** (confirm dialog; frees their turnovers,
-  hard-deletes; guarded against self/other admins).
+Roughly ordered: pre-launch hardening first, then the near-term feature, then
+deferred features and enhancements.
 
-## Needs a one-time dashboard step (you, ~5 min)
+## Pre-launch (do before / with the real rollout)
 
-- **Auth email templates** — apply `docs/AUTH_EMAIL_SETUP.md` (Invite + Change
-  Email) so the invite link and the "Update email" button work in one click.
-  Until then, the workaround stands: invited accounts exist, so cleaners can sign
-  in via `/auth/login`. Redo on the hosted project at go-live.
+- **Email deliverability.** Verify a Resend domain (SPF/DKIM/DMARC) and set
+  `NOTIFY_FROM`. Fixes spam **and** unblocks `+alias` cleaner addresses. Steps in
+  `docs/GO_LIVE.md` §3 / `docs/RESEND_SETUP.md`.
+- **End-to-end bug-bash.** Walk the common scenarios as admin + cleaner against a
+  fixture feed: claim race, reassign, date move, cancellation, same-day flip,
+  deactivate-with-claims, invite/first-run, closeout, payment, linen move, email
+  delivery. Catch functional bugs, UX dead-ends, copy problems. Write a short
+  scripted checklist as we go.
+- **UX cleanup.**
+  - *Account settings consolidation* — unify the sections into one coherent page
+    with a consistent save model (today it mixes two save buttons + autosave).
+  - *Deactivated-cleaner affordance* — a paused cleaner is blocked from claiming
+    but isn't told why. Show a friendly "your account is paused — contact Daniel"
+    state instead of silent claim errors.
+  - *Responsive text wrapping* — the header wordmark + nav and `/welcome` wrap
+    awkwardly on small screens.
+- **UI / look-and-feel pass.** Define the visual personality and apply it within
+  the token contract; tidy responsive layout; small playful flourishes (e.g. real
+  `/welcome` confetti vs. today's static 🎉).
 
-## Phase 3 — Notifications (BUILT on `phase-2-polish`, not yet deployed)
+## Near-term feature: the turnover as the home for three "sibling" notes
 
-Channels: in-app + email (Resend) now; web push later. Driven by the sync diff
-(added / changed / cancelled), which reconcile already computes. **Not
-load-bearing** — never double-send (outbox with status), never block the
-schedule.
+When you review a turnover, three note/feedback fields belong **on it** — captured
+by different people at different moments, but persisted *with the turnover* and
+shown side-by-side. Its detail page (`/turnover/[id]`) is the natural home.
 
-| Event | Who | Message |
-| --- | --- | --- |
-| New booking | all active cleaners | new turnover date available to claim |
-| Cancelled booking | cleaner who claimed it | your turnover on {date} was cancelled |
-| Edited booking (date moved) | previously-assigned cleaner | your date changed; new date is open (**releases the claim**) |
-| Edited booking (date moved) | all cleaners | new date available |
-| **Relaxed → same-day flip** | assigned cleaner (+ admin) | **heads up: now a same-day turnover** (high priority) |
-| Admin assigns / reassigns | the newly-assigned cleaner | you've been assigned {date} |
-| Admin reassigns / unassigns | the removed cleaner | you've been taken off {date} |
-| Reminder, 24–72h before | the assigned cleaner | reminder: you're on for {date} |
-| Payment sent | cleaner who did it | you've been paid for {date} (Phase 6) |
+1. **Prep notes** (coordination) — early arrival, special requests. Shared: the
+   admin **and** the assigned cleaner can see + edit. _Not built._
+2. **Guest feedback** (cleaner → admin) — the 1–5 rating + note filed at
+   mark-complete. _Built; already persisted and shown on the turnover page._
+3. **Cleaner feedback** (admin → cleaner) — the admin's note about the work.
+   _Built only as a one-way `notifications` row: written from the turnover page
+   but never read back, so it isn't a persisted turnover field._
 
-Open questions: reminder cadence (per-user vs. 2-day default); whether
-cancel/edit on **unclaimed** turnovers should stay quiet (probably yes).
+**Principle (mirrors the sync design):** the turnover holds the **durable record**;
+notifications are just the **delivery layer**. #2 already works this way. So:
 
-**What actually counts as a change (the feed is date-only).** The Airbnb iCal
-export carries only dates (DTSTART/DTEND), UID, summary, and a description — no
-times, no guest count. So:
-- **Checkout date moves** → the turnover date moves → release the existing claim
-  + notify (we can't assume the cleaner is free on the new date). `date_changed`
-  keys on the *checkout* date specifically.
-- **Booking disappears** → `cancelled`.
-- **Same-date changes** (extra guest, early check-in, etc.) → either absent from
-  the feed or don't move the date → **no notification, claim stays put.** Decided:
-  same date = cleaner is still on.
-- **Early check-in time** isn't in the feed (date-only), so it can't drive a
-  notification from the calendar. If we ever want "your check-in moved earlier"
-  for the assigned cleaner, it's a manual coordination feature (Phase 6), and it
-  would *update* (not release) the assignment.
+- Add **#1** as a shared, turnover-scoped field with RLS for admin + the currently-
+  assigned cleaner (grow `turnovers.notes`, or a small `turnover_notes` table).
+- Make **#3** persist a turnover-scoped record too, so it shows on the turnover
+  (the notification stays as the ping, not the store) — likely the durable
+  `cleaner_notes` table the spec wanted (5.14).
+- Compose all three into one "Notes & feedback" section on the turnover page.
 
-**Safe testing:** sync reads `AIRBNB_ICAL_URL`, and we already serve controlled
-`.ics` fixtures over HTTP in tests — so we (1) unit-test "diff → notifications"
-against fixture pairs with the sender mocked (zero real email), then (2) one
-end-to-end run against a fixture feed + a real test inbox. Never touch the live
-calendar.
+Storage stays per-type (different authors, shapes, visibility) — "sibling" is a
+**review-surface** concept, not one table. This also **supersedes** the granular
+coordination-requests flow (5.10): a shared prep note covers luggage / early
+check-in without new request tables.
 
-## UI polish (revisit together later)
+## Near-term feature: view past / historical turnovers
 
-- **Deactivated-cleaner affordance.** Today an inactive cleaner is blocked from
-  claiming but the app gives no clear signal *why*. Add an obvious state — likely
-  hide the schedule behind a friendly "your account is paused — contact Daniel"
-  lock-out screen — so they're not left guessing or hitting claim errors.
-- **Text wrapping** on the header (long "357 Oasis Turnovers" wordmark + nav) and
-  the `/welcome` page wraps awkwardly on small screens. Tighten responsive
-  layout when we do a UI polish pass.
-- **Confetti** on `/welcome` (today it's a tasteful static 🎉 — add motion only
-  if it's worth a dependency or a little globals.css).
+Today the schedule hard-filters to upcoming (`turnover_date >= today`,
+`app/schedule/page.tsx`) and the only filter axis is ownership (All / Mine /
+Unclaimed). There is **no way to see past turnovers** except the admin-only
+per-cleaner page — so once a date passes, a turnover and its feedback/payment drop
+off. **Not in the spec** (it's upcoming-oriented). A real gap, sharpest for
+payments: a cleaner can't see their own paid/unpaid history.
 
-## Cross-cutting (do before/with a real rollout)
+- Add a **time scope** (Upcoming / Past) as a control *orthogonal* to the
+  All/Mine/Unclaimed ownership filter, reusing the same list + cards. Default
+  Upcoming.
+- Past turnovers render read-only (no claim actions; show completed / paid /
+  cancelled state). Admin sees all; a cleaner sees their own.
+- Mostly relaxing the `.gte` date filter by scope + one toggle — low complexity.
 
-- **End-to-end test pass.** Walk common scenarios as admin + cleaner: claim race,
-  reassign, date move, cancellation, same-day flip, deactivate-with-claims,
-  invite/first-run, email delivery. Catch functional bugs, UX dead-ends, and copy
-  problems. Build a short scripted checklist.
-- **UI / look-and-feel pass.** Define the visual personality, fix the text-wrap
-  issues (header wordmark + nav, /welcome), tidy responsive layout, add small
-  playful flourishes (e.g. real /welcome confetti). Keep the token contract.
-- **Rotate the Resend key** (it passed through chat) — see security note.
+## Deferred spec features (in the spec, intentionally not built)
 
-## Phase 4 — Closeout & feedback (decided; content in docs/content/)
+Kept as backlog, not cut — revisit once we know how granular things really need
+to be (the guiding worry is not adding complexity prematurely).
 
-- **Checklist & inventory items** — admin-editable tables (`checklist_items`,
-  `inventory_items`) with three fields each: **name** (bold), **description**
-  (always visible), **helper** (tooltip/sub-text, optional). Plus a `section`/
-  group and `position`. Lightweight in-app editor (add / remove / reorder /
-  toggle active). Seed content: `docs/content/closeout-and-inventory.md`.
-- **Closeout flow** — per-turnover the cleaner ticks items off (completion is a
-  join: turnover × item). Mark-complete notifies the admin.
-- **Guest feedback** (cleaner → admin, to help Daniel rate the guest): a **free-
-  text note** + a **5-star cleanliness rating**. Prompt the note with: how clean
-  overall? any problem areas? anything broken/stained/damaged? were
-  garbage/recycle/compost handled right? any hint of house-rule breaks (smoking
-  paraphernalia, a party, strong residual fragrance)?
-- **Cleaner notes** (admin → cleaner): free text tied to a turnover (so it
-  cross-references the date + booking/confirmation code), visible only to the
-  admin and that cleaner. **Implemented as a notification** of a new type
-  (`cleaner_note`) so it reuses the inbox + email engine; the inbox gains a
-  filter to show just notes. Adding a note emails the cleaner.
-- **Per-cleaner history** — a screen to review a cleaner's notes + feedback over
-  time.
+- **Coordination requests** (spec 5.10) — structured luggage-drop / early-check-in
+  request + yes/no/conditional response. Likely unnecessary if generic turnover
+  notes (above) prove enough.
+- **Inventory "running low" flags** (spec 5.7) — per-turnover low-stock flags
+  against a supply catalog (`supply_items` + `inventory_flags`). If ever built,
+  probably just a binary low/out, not counts. _(The `/checklist` editor is an
+  inventory **reference** sheet — not this flagging workflow.)_
+- **Maintenance / durable-goods flags** (spec 5.8) — flag a stained towel / thin
+  sheet for replacement.
+- **Guest feedback depth** — the spec's `damages` / `missing_items` fields (not
+  built; today it's cleanliness + note).
+- **Durable / two-way cleaner notes** — if the one-way notification model proves
+  too thin, a real `cleaner_notes` table with acknowledge (spec 5.14).
 
-## Notification preferences (with Phase 4; touches the notify engine)
+## Notification enhancements
 
-- Per-user, per-type **channel subscriptions** in Account settings: choose
-  email and/or in-app for each notification type (e.g. a cleaner wants email for
-  new-turnover + cancellation, but cleaner-notes in-app only). The sender reads
-  these prefs before emailing; the inbox always keeps everything. Default: all
-  on. (Today every notification emails — this makes it opt-out per type.)
+- **Near-real-time.** Today the badge/inbox update on refresh (fine for a
+  single-user-at-a-time app). A Supabase Realtime subscription on `notifications`
+  (filtered to the recipient) would bump the badge + list live. Lowish priority.
+- **Faster email.** Emails currently flush on the hourly sync. Options: a ~15-min
+  "drain" cron hitting a notify endpoint, or send-on-enqueue for high-priority
+  types. (`/test` has a manual "send now.")
+- **Email retry/backoff.** A failed Resend send marks the row `failed` (no retry).
+  Leave 5xx/network as `pending` to retry; fail only on 4xx.
 
-## Phase 6 — Payments (planned)
+## Closeout & tooling
 
-- **Payment status** per turnover; per-cleaner privacy.
-- **Yearly pay totals per cleaner** (1099 / tax) — already noted.
-- **Rates model**: a default rate per cleaner (e.g. $120) with a **per-turnover
-  override** (e.g. $200 for a deep clean). Capture amount + reason on the
-  assignment. (Planning note — not for now.)
-
-## Phase 4 follow-ups (from testing feedback)
-
-- **Account settings consolidation.** Three sections with mixed save patterns
-  (two save buttons + one autosave) feels disjointed — unify into one coherent
-  page with a consistent save model.
-- **Near-real-time notifications.** Today the badge/inbox update on refresh
-  (adequate, single-user-at-a-time). To never show stale state: a Supabase
-  Realtime subscription on `notifications` (filtered to the recipient) that
-  bumps the badge + list live. Lowish priority.
-- **Email deliverability.** The one delivered email hit spam (`onboarding@resend.dev`,
-  no domain auth). Verify a Resend **domain** with SPF/DKIM/DMARC and set
-  `NOTIFY_FROM` to it — fixes spam AND unblocks delivery to the `+alias` cleaner
-  addresses (sandbox only delivers to your own address).
-- **Faster email.** Emails currently flush on the hourly sync. Options: a
-  dedicated ~15-min "drain" cron hitting a notify endpoint, or send-on-enqueue
-  for high-priority types. (The /test page has a manual "send now" for testing.)
-- **Per-item closeout persistence.** The closeout checklist is a reference list;
-  ticks aren't persisted per turnover. Add a completions join if we want a
-  recorded, item-by-item checkoff.
-- **Richer spoof tool.** Today /test injects sample notifications. A fuller
+- **Per-item closeout persistence.** The checklist is a reference list; ticks
+  aren't stored per turnover. Add a completions join for a recorded checkoff.
+- **Richer spoof tool.** `/test` injects sample notifications today. A fuller
   harness could inject/shift/cancel a *test booking* and run the real sync diff
-  end to end.
+  end to end against a fixture feed.
+
+## Admin surfaces
+
+- **Sync-health view** (spec 5.13). `/api/health` + the "synced N ago" chip exist;
+  a small admin page listing recent `sync_runs` / failures would round it out.
+- **Yearly pay totals export.** The per-cleaner this-year total is shown; add a
+  CSV/export for 1099 / tax season.
 
 ## Later / nice-to-have
 
-- **Email send retry/backoff.** A failed Resend send currently marks the row
-  `failed` (no retry); the in-app inbox still shows it. Add transient-vs-permanent
-  handling (leave 5xx/network as `pending` to retry; fail only on 4xx).
-- **Yearly pay totals per cleaner** (Phase 6, admin): sum payments by cleaner +
-  calendar year for 1099 / tax season. Exportable.
-- App naming variety in body copy (property = "357 Oasis" / "Central District
-  Oasis Airbnb") while keeping the wordmark consistent.
+- **Web push** — a third notification channel (no schema change; after the core
+  is proven stable).
+- **Calendar view** — optional secondary toggle; the list stays primary.
+- **Copy variety** — property aliases ("357 Oasis" / "Central District Oasis
+  Airbnb") in body copy while keeping the wordmark consistent.

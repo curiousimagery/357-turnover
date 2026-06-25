@@ -1,6 +1,6 @@
 # Turnover Coordination App: Master Specification
 
-**Version:** 1.3
+**Version:** 1.4
 **Last updated:** June 2026
 **Owner:** Daniel Nelson
 **Property:** 357 26th Ave, Seattle, WA 98122 (basement Airbnb unit)
@@ -10,6 +10,37 @@
 > **Changes in 1.2:** recorded the real iCal feed and its expected end-date convention (turnover date equals the parsed DTEND, cross-referenced to the Kaitlyn booking, final byte check pending); set the timezone to America/Los_Angeles (Pacific); modeled linen inventory as individual sheet sets and duvet sets carrying kind, color, and brand, and added managing them to admin CRUD; refined the timing window (soft 11:00 checkout, cleaner arrives 11:30 to noon, finish by 4:00, start early for curveballs, no rushing).
 >
 > **Changes in 1.3:** confirmed the end-date convention against the real feed (Kaitlyn `DTEND` is `20260625`, the checkout date); specified reservation detection by the `Reserved` summary and exclusion of `Airbnb (Not available)` blocks from both derivation and same-day detection (the real feed has a reservation checking out Aug 31 as a block starts Aug 31, which must not read as same-day); store the reservation URL on bookings (admin-only) for click-through and deliberately drop the guest phone last-4 the feed includes; restricted bookings to admin and system; captured the real summer feed as the canonical test fixture.
+>
+> **Changes in 1.4:** added the Implementation Status note below (what is actually built vs. still aspirational in this spec) and pointers to the durable repo docs that track day-to-day reality.
+
+---
+
+## Implementation Status (as of June 2026)
+
+This spec is the **why/what** source of truth. Day-to-day reality lives in the
+repo docs: `DATA_MODEL.md` (the schema as built), `CLAUDE.md` (phase status),
+`DECISIONS.md` (choices/reversals), `docs/GO_LIVE.md` (steps to ship), and
+`docs/BACKLOG.md` (what's next). Where this spec and the code disagree, those
+files reflect the code.
+
+- **Live (Phases 0–4):** auth, calendar sync + derivation, claiming/filtering +
+  manual turnovers, notifications (email + in-app) + reminders + per-type
+  preferences + health endpoint, closeout checklist + completion, guest feedback,
+  admin→cleaner notes + per-cleaner history, personal tags.
+- **Built, pending merge (Phases 5–6, branch `phase-5-6`):** linen tracking with
+  the low-set warning; payment status with per-cleaner privacy (default rate +
+  per-turnover override + yearly total); a profile-dropdown header.
+- **Deferred to backlog (specified here but not built):** coordination requests
+  (5.10), per-turnover inventory "running low" flags (5.7), maintenance/durable
+  flags (5.8). A generic, shared, admin+cleaner-editable **turnover notes** field
+  is the planned near-term replacement for the granular coordination flow.
+- **Known spec↔code deltas:** "cleaner notes" (5.14) are implemented as
+  `notifications` rows (`type='cleaner_note'`), not a `cleaner_notes` table;
+  payment data lives in its own `payments`/`cleaner_rates` tables, not as columns
+  on `turnover_assignments` (4.1); the closeout checklist/inventory are
+  admin-editable **reference** sheets, not the `supply_items`/`inventory_flags`
+  low-stock workflow (5.7); `guest_feedback` is cleanliness + note only (no
+  `damages`/`missing_items`).
 
 ---
 

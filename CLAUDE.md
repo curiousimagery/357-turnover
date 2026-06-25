@@ -74,18 +74,25 @@ npx supabase status         # local URLs + keys
 
 ## Status
 
-- **Phase 0 (done, deployed):** scaffold, design tokens + Style Guide, magic-link
-  auth, `profiles` + trigger + RLS, settings with tag color. Live on Vercel +
-  hosted Supabase.
-- **Phase 1 (done, live):** iCal parse/derive (pure + tested),
-  `bookings`/`turnovers`/`sync_*` migration, defensive idempotent reconcile
-  (`lib/sync/`), `/api/sync` route (hourly pg_cron), read-only `/schedule`.
-- **Phase 2 (built on `phase-2-claiming`, verified locally, not yet live):**
-  `turnover_assignments` (`unique(turnover_id)` double-booking guard) + RLS;
-  claim/unclaim + admin assign/reassign/unassign actions
-  (`app/schedule/actions.ts`); interactive `/schedule` with cleaner tags and a
-  working All/Mine/Unclaimed filter (`components/schedule-list.tsx`); admin
-  `/cleaners` invite + activate/deactivate; manual turnovers; `confirmation_code`
-  on cards. Tested: double-booking guard (23505) + confirmation-code parse.
-- **Next:** apply the two Phase 2 migrations to hosted, set `NEXT_PUBLIC_SITE_URL`
-  (invite redirects), then Phase 3 (notifications).
+- **Phases 0–4 (done, live):** scaffold + tokens + Style Guide + magic-link auth
+  (Phase 0); iCal parse/derive + idempotent reconcile + `/api/sync` hourly cron +
+  read-only `/schedule` (Phase 1); claim/unclaim with the `unique(turnover_id)`
+  guard, All/Mine/Unclaimed filter, cleaner tags, admin assign/reassign, manual
+  turnovers (Phase 2); notification outbox + email (Resend) + in-app inbox +
+  reminders + per-type preferences + health endpoint (Phase 3); closeout
+  checklist + mark-complete, guest feedback, admin→cleaner notes, per-cleaner
+  history (Phase 4).
+- **Phases 5–6 (built on `phase-5-6`, verified locally, not yet merged/live):**
+  linen tracking (`linen_sets`, low-stock warning); payments (`payments` +
+  `cleaner_rates`, private amounts, default rate + per-turnover override, yearly
+  total); the profile-dropdown header. To ship: see `docs/GO_LIVE.md`.
+- **Deferred to backlog (not built):** coordination requests (luggage / early
+  check-in), per-turnover inventory "running low" flags, maintenance/durable
+  flags. See `docs/BACKLOG.md`.
+- **Reality vs spec to know:** "cleaner notes" are **notification rows**
+  (`type='cleaner_note'`), not a `cleaner_notes` table; `guest_feedback` is
+  cleanliness + note only (no damages/missing-items columns). `DATA_MODEL.md`
+  documents what actually exists.
+- **Next:** ship `phase-5-6` (`docs/GO_LIVE.md`), then pre-launch hardening —
+  email deliverability, an E2E bug-bash, UX cleanup, the UI pass
+  (`docs/BACKLOG.md`).
