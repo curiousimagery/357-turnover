@@ -1,17 +1,16 @@
 # Punch list — getting the latest live (everything you do manually)
 
-All the Phase 4 work is on the branch **`phase-4-checklist`** (not yet deployed).
-You've been testing it locally (`npm run dev` against the hosted DB). When you're
-ready to make it live for cleaners, do these in order. Nothing here was done to
-production automatically.
+**Phase 4 is deployed** (you applied its migrations and merged to `main`). The
+latest batch — **Phases 5 & 6** (payments, linen tracking, profile menu) — is on
+the branch **`phase-5-6`**, not yet deployed. Do these in order; nothing was done
+to production automatically.
 
 ## 1. Apply the two new migrations (hosted SQL Editor)
 
-You've already applied `closeout_lists` and `notification_preferences`. The two
-new ones (paste each, Run — both additive/safe):
+Paste each, Run — both additive/safe:
 
-- `supabase/migrations/20260624040000_notifications_archive.sql`
-- `supabase/migrations/20260624050000_guest_feedback.sql`
+- `supabase/migrations/20260624060000_payments.sql`
+- `supabase/migrations/20260624070000_linens.sql`
 
 ## 2. Confirm Vercel env vars
 
@@ -28,7 +27,7 @@ Test locally first if you like, then:
 git checkout main
 ```
 ```bash
-git merge phase-4-checklist
+git merge phase-5-6
 ```
 ```bash
 git push
@@ -58,7 +57,19 @@ not spam.
 
 ---
 
-## What's new in this batch (so you know what to test)
+## What's new in Phases 5–6 (this branch)
+
+- **Profile menu** — your name + initials (top right) open a dropdown: signed-in
+  email, Account settings, Sign out. Account left the nav; bell stays.
+- **Payments** (`/turnover/[id]`, admin) — set an amount (prefilled from the
+  cleaner's default rate) and mark paid; the cleaner sees only their own status
+  and gets a "you've been paid" notification. Per-cleaner page (`/cleaners/[id]`)
+  has the **default rate** + **this-year total** (for taxes).
+- **Linens** (`/linens`, everyone) — every sheet/duvet set with its state
+  (on beds / clean backup / with cleaner / in wash) and holder; anyone moves
+  them, admins add/remove, and a banner warns when clean backups run low.
+
+## What shipped in Phase 4 (already live)
 
 - **Checklist & inventory editor** (`/checklist`, admin) — load starter items,
   edit/reorder/hide.
