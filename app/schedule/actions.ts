@@ -8,6 +8,7 @@ import {
   notifyAssigned,
   notifyRemoved,
   notifyAvailable,
+  notifyAdminsReleased,
 } from "@/lib/notify/assignment";
 
 /**
@@ -91,7 +92,8 @@ export async function unclaimTurnover(
 
   if (error) return { ok: false, error: error.message };
 
-  // Reopened — let the other active cleaners know it's open.
+  // Reopened — let the other cleaners know it's open, and the admins know it
+  // lost coverage (matters most for last-minute releases).
   try {
     const { data: trow } = await supabase
       .from("turnovers")
@@ -99,12 +101,20 @@ export async function unclaimTurnover(
       .eq("id", turnoverId)
       .maybeSingle();
     const date = (trow?.turnover_date as string | undefined) ?? null;
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    const releasedByName = (me?.display_name as string | undefined) ?? "A cleaner";
     if (date) {
-      await notifyAvailable(createAdminClient(), {
+      const admin = createAdminClient();
+      await notifyAvailable(admin, {
         turnoverId,
         date,
         excludeCleanerId: user.id,
       });
+      await notifyAdminsReleased(admin, { turnoverId, date, releasedByName });
     }
   } catch (e) {
     console.error("release notice failed:", e);

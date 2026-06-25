@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { markAllRead } from "@/app/inbox/actions";
+import {
+  markAllRead,
+  archiveNotification,
+  archiveAll,
+} from "@/app/inbox/actions";
 
 export type InboxItem = {
   id: string;
@@ -14,16 +21,17 @@ export type InboxItem = {
   body: string;
   timeLabel: string;
   readAt: string | null;
+  turnoverId: string | null;
 };
 
 /**
- * The cleaner's notification inbox. Opening it marks everything read (clearing
- * the header badge); the items that were new in *this* view keep an accent so
- * you can still see what arrived.
+ * The cleaner/admin inbox. Opening it marks everything read (clearing the
+ * badge); items keep a "new" accent for this view. Notifications that point at a
+ * turnover link to it on the schedule; users can archive to declutter.
  */
 export function InboxList({ items }: { items: InboxItem[] }) {
   const router = useRouter();
-  // Snapshot what was unread on first render — survives the refresh below.
+  const [pending, startTransition] = useTransition();
   const [wasUnread] = useState(
     () => new Set(items.filter((i) => !i.readAt).map((i) => i.id)),
   );
@@ -36,10 +44,24 @@ export function InboxList({ items }: { items: InboxItem[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function archive(id: string) {
+    startTransition(async () => {
+      await archiveNotification(id);
+      router.refresh();
+    });
+  }
+
+  function clearAll() {
+    startTransition(async () => {
+      await archiveAll();
+      router.refresh();
+    });
+  }
+
   if (items.length === 0) {
     return (
       <Card className="flex flex-col gap-2 p-6">
-        <p className="text-body text-foreground">No notifications yet.</p>
+        <p className="text-body text-foreground">No notifications.</p>
         <p className="text-caption text-muted-foreground">
           New bookings, cancellations, date changes, and reminders show up here.
         </p>
@@ -49,6 +71,17 @@ export function InboxList({ items }: { items: InboxItem[] }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={clearAll}
+        >
+          Clear all
+        </Button>
+      </div>
+
       {items.map((item) => {
         const isNew = wasUnread.has(item.id);
         const urgent = item.type === "became_same_day";
@@ -67,7 +100,7 @@ export function InboxList({ items }: { items: InboxItem[] }) {
                 aria-label="new"
               />
             )}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-body font-semibold text-foreground">
                   {item.title}
@@ -77,7 +110,24 @@ export function InboxList({ items }: { items: InboxItem[] }) {
                 </span>
               </div>
               <p className="text-caption text-muted-foreground">{item.body}</p>
+              {item.turnoverId && (
+                <Link
+                  href={`/schedule?focus=${item.turnoverId}`}
+                  className="text-caption font-semibold text-primary hover:underline"
+                >
+                  View turnover →
+                </Link>
+              )}
             </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Archive"
+              disabled={pending}
+              onClick={() => archive(item.id)}
+            >
+              <X />
+            </Button>
           </Card>
         );
       })}

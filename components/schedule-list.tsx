@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -42,14 +42,22 @@ export function ScheduleList({
   currentUserId,
   isAdmin,
   cleaners,
+  focusId,
 }: {
   rows: ScheduleRow[];
   currentUserId: string;
   isAdmin: boolean;
   cleaners: Cleaner[];
+  focusId?: string | null;
 }) {
   const [filter, setFilter] = useState<ScheduleFilterValue>("all");
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!focusId) return;
+    const el = document.getElementById(`turnover-${focusId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusId]);
 
   const visible = useMemo(
     () =>
@@ -87,20 +95,22 @@ export function ScheduleList({
         </Card>
       ) : (
         visible.map((row) => (
-          <TurnoverCard
-            key={row.id}
-            turnover={row}
-            action={
-              <RowAction
-                row={row}
-                currentUserId={currentUserId}
-                isAdmin={isAdmin}
-                cleaners={cleaners}
-                pending={pending}
-                run={run}
-              />
-            }
-          />
+          <div key={row.id} id={`turnover-${row.id}`}>
+            <TurnoverCard
+              turnover={row}
+              className={row.id === focusId ? "ring-2 ring-primary" : undefined}
+              action={
+                <RowAction
+                  row={row}
+                  currentUserId={currentUserId}
+                  isAdmin={isAdmin}
+                  cleaners={cleaners}
+                  pending={pending}
+                  run={run}
+                />
+              }
+            />
+          </div>
         ))
       )}
     </div>

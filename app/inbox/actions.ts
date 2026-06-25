@@ -26,3 +26,37 @@ export async function markAllRead(): Promise<{ ok: boolean }> {
   revalidatePath("/inbox");
   return { ok: true };
 }
+
+/** Archive one notification (drops out of the inbox + badge; stays as history). */
+export async function archiveNotification(id: string): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+  const { error } = await supabase
+    .from("notifications")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("recipient_id", user.id);
+  if (error) return { ok: false };
+  revalidatePath("/inbox");
+  return { ok: true };
+}
+
+/** Clear the inbox — archive everything still showing. */
+export async function archiveAll(): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+  const { error } = await supabase
+    .from("notifications")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("recipient_id", user.id)
+    .is("archived_at", null);
+  if (error) return { ok: false };
+  revalidatePath("/inbox");
+  return { ok: true };
+}

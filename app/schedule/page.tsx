@@ -36,7 +36,12 @@ function firstEmbed<T>(embed: T | T[] | null | undefined): T | null {
   return embed ?? null;
 }
 
-export default async function SchedulePage() {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ focus?: string }>;
+}) {
+  const { focus } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -133,6 +138,7 @@ export default async function SchedulePage() {
             currentUserId={user.id}
             isAdmin={isAdmin}
             cleaners={cleaners}
+            focusId={focus ?? null}
           />
         )}
       </main>

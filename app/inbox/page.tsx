@@ -23,8 +23,9 @@ export default async function InboxPage() {
 
   let listQuery = supabase
     .from("notifications")
-    .select("id, type, title, body, created_at, read_at")
+    .select("id, type, title, body, created_at, read_at, turnover_id")
     .eq("recipient_id", user.id)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
   if (mutedTypes.length > 0) {
@@ -39,6 +40,7 @@ export default async function InboxPage() {
     title: n.title as string,
     body: n.body as string,
     readAt: (n.read_at as string | null) ?? null,
+    turnoverId: (n.turnover_id as string | null) ?? null,
     timeLabel: formatRelativeMinutes(
       Math.max(0, Math.floor((now - new Date(n.created_at as string).getTime()) / 60000)),
     ),

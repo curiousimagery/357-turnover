@@ -70,3 +70,32 @@ export async function notifyAvailable(
     })),
   );
 }
+
+/** Tell the admins a turnover lost its cleaner so they can ensure coverage —
+ *  especially for last-minute releases. */
+export async function notifyAdminsReleased(
+  admin: SupabaseClient,
+  args: { turnoverId: string; date: string; releasedByName: string },
+): Promise<void> {
+  const { data: admins } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin")
+    .eq("active", true);
+  const recipients = (admins ?? []).map((a) => a.id as string);
+  if (recipients.length === 0) return;
+
+  const stamp = Date.now();
+  await admin.from("notifications").insert(
+    recipients.map((id) => ({
+      recipient_id: id,
+      type: "released",
+      channel: "email",
+      turnover_id: args.turnoverId,
+      title: "A turnover needs coverage",
+      body: `${args.releasedByName} released the turnover on ${args.date}. It's back in the unclaimed pool.`,
+      status: "pending",
+      dedupe_key: `released:${args.turnoverId}:${id}:${stamp}`,
+    })),
+  );
+}
