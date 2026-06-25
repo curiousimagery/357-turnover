@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
 import { CloseoutActions } from "@/components/closeout-actions";
 import { CleanerNoteForm } from "@/components/cleaner-note-form";
+import { PaymentControls } from "@/components/payment-controls";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { formatMonthDay, formatWeekday } from "@/lib/dates";
@@ -71,7 +72,7 @@ export default async function TurnoverDetailPage({
   const status = turnover.status as string;
   const canComplete = (isAdmin || isAssigned) && status === "scheduled";
 
-  const [{ data: checklist }, { data: inventory }, { data: feedback }] =
+  const [{ data: checklist }, { data: inventory }, { data: feedback }, { data: payment }] =
     await Promise.all([
       supabase
         .from("checklist_items")
@@ -88,7 +89,24 @@ export default async function TurnoverDetailPage({
         .select("cleanliness, note, created_at")
         .eq("turnover_id", id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("payments")
+        .select("amount, paid_at")
+        .eq("turnover_id", id)
+        .maybeSingle(),
     ]);
+
+  const paymentAmount = (payment?.amount as number | null) ?? null;
+  const paid = !!payment?.paid_at;
+  let prefillAmount = paymentAmount;
+  if (isAdmin && prefillAmount == null && assignment?.cleaner_id) {
+    const { data: rate } = await supabase
+      .from("cleaner_rates")
+      .select("default_rate")
+      .eq("cleaner_id", assignment.cleaner_id)
+      .maybeSingle();
+    prefillAmount = (rate?.default_rate as number | null) ?? null;
+  }
 
   return (
     <div className="min-h-svh">
@@ -133,6 +151,25 @@ export default async function TurnoverDetailPage({
               turnoverId={turnover.id as string}
               cleanerName={assignee.display_name}
             />
+          </Card>
+        )}
+
+        {assignee && (isAdmin || isAssigned) && (
+          <Card className="flex flex-col gap-4 p-6">
+            <h2 className="text-heading">Payment</h2>
+            {isAdmin ? (
+              <PaymentControls
+                turnoverId={turnover.id as string}
+                initialAmount={prefillAmount}
+                initialPaid={paid}
+              />
+            ) : (
+              <p className="text-body text-foreground">
+                {paid
+                  ? `Paid${paymentAmount != null ? ` $${paymentAmount}` : ""}.`
+                  : "Not paid yet."}
+              </p>
+            )}
           </Card>
         )}
 

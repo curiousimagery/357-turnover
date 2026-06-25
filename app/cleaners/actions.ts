@@ -134,3 +134,25 @@ export async function deleteCleaner(cleanerId: string): Promise<ActionResult> {
   revalidatePath("/cleaners");
   return { ok: true };
 }
+
+/** Set a cleaner's default per-turnover rate (prefills payments). */
+export async function setDefaultRate(
+  cleanerId: string,
+  rate: number | null,
+): Promise<ActionResult> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate;
+  const { error } = await gate.supabase
+    .from("cleaner_rates")
+    .upsert(
+      {
+        cleaner_id: cleanerId,
+        default_rate: rate,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "cleaner_id" },
+    );
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/cleaners/${cleanerId}`);
+  return { ok: true };
+}

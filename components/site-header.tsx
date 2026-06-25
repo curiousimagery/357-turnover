@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
 
-import { AuthButton } from "@/components/auth-button";
+import { Button } from "@/components/ui/button";
+import { ProfileMenu } from "@/components/profile-menu";
 import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
 
-/** Shared app shell header — brand, primary nav, inbox, auth state. */
+/** Shared app shell header — brand, nav, inbox, and the profile menu. */
 export async function SiteHeader() {
   let isAdmin = false;
   let signedIn = false;
   let unread = 0;
+  let profile: { name: string; color: string | null; email: string } | null =
+    null;
 
   if (hasEnvVars) {
     const supabase = await createClient();
@@ -18,12 +21,17 @@ export async function SiteHeader() {
     } = await supabase.auth.getUser();
     if (user) {
       signedIn = true;
-      const { data: profile } = await supabase
+      const { data: row } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, display_name, color")
         .eq("id", user.id)
         .maybeSingle();
-      isAdmin = profile?.role === "admin";
+      isAdmin = row?.role === "admin";
+      profile = {
+        name: row?.display_name ?? user.email?.split("@")[0] ?? "You",
+        color: row?.color ?? null,
+        email: user.email ?? "",
+      };
 
       const { data: muted } = await supabase
         .from("notification_preferences")
@@ -36,7 +44,8 @@ export async function SiteHeader() {
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("recipient_id", user.id)
-        .is("read_at", null);
+        .is("read_at", null)
+        .is("archived_at", null);
       if (mutedTypes.length > 0) {
         countQuery = countQuery.not("type", "in", `(${mutedTypes.join(",")})`);
       }
@@ -44,6 +53,16 @@ export async function SiteHeader() {
       unread = count ?? 0;
     }
   }
+
+  const adminLinks = isAdmin
+    ? [
+        { href: "/cleaners", label: "Cleaners" },
+        { href: "/checklist", label: "Checklist" },
+        { href: "/linens", label: "Linens" },
+        { href: "/test", label: "Test" },
+        { href: "/style-guide", label: "Style Guide" },
+      ]
+    : [];
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
@@ -58,46 +77,17 @@ export async function SiteHeader() {
           >
             Schedule
           </Link>
-          {isAdmin && (
+          {adminLinks.map((l) => (
             <Link
-              href="/cleaners"
+              key={l.href}
+              href={l.href}
               className="text-caption text-muted-foreground hover:text-foreground"
             >
-              Cleaners
+              {l.label}
             </Link>
-          )}
-          {isAdmin && (
-            <Link
-              href="/checklist"
-              className="text-caption text-muted-foreground hover:text-foreground"
-            >
-              Checklist
-            </Link>
-          )}
-          {isAdmin && (
-            <Link
-              href="/test"
-              className="text-caption text-muted-foreground hover:text-foreground"
-            >
-              Test
-            </Link>
-          )}
-          <Link
-            href="/settings"
-            className="text-caption text-muted-foreground hover:text-foreground"
-          >
-            Account
-          </Link>
-          {isAdmin && (
-            <Link
-              href="/style-guide"
-              className="text-caption text-muted-foreground hover:text-foreground"
-            >
-              Style Guide
-            </Link>
-          )}
+          ))}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {signedIn && (
             <Link
               href="/inbox"
@@ -112,7 +102,17 @@ export async function SiteHeader() {
               )}
             </Link>
           )}
-          <AuthButton />
+          {signedIn && profile ? (
+            <ProfileMenu
+              name={profile.name}
+              color={profile.color}
+              email={profile.email}
+            />
+          ) : (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/auth/login">Sign in</Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>

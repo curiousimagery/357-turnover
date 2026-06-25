@@ -7,9 +7,82 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   notifyAdminsCompleted,
   notifyCleanerNote,
+  notifyPaid,
 } from "@/lib/notify/assignment";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+/** Admin records / updates a turnover's payment. Notifies the cleaner the first
+ *  time it's marked paid. */
+export async function recordPayment(input: {
+  turnoverId: string;
+  amount: number | null;
+  paid: boolean;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (me?.role !== "admin") return { ok: false, error: "Admins only." };
+
+  const { data: assignment } = await supabase
+    .from("turnover_assignments")
+    .select("cleaner_id")
+    .eq("turnover_id", input.turnoverId)
+    .maybeSingle();
+  const cleanerId = assignment?.cleaner_id as string | undefined;
+  if (!cleanerId) {
+    return { ok: false, error: "No cleaner is assigned to this turnover." };
+  }
+
+  const { data: existing } = await supabase
+    .from("payments")
+    .select("paid_at")
+    .eq("turnover_id", input.turnoverId)
+    .maybeSingle();
+  const wasPaid = !!existing?.paid_at;
+  const paidAt = input.paid
+    ? ((existing?.paid_at as string | undefined) ?? new Date().toISOString())
+    : null;
+
+  const { error } = await supabase.from("payments").upsert(
+    {
+      turnover_id: input.turnoverId,
+      cleaner_id: cleanerId,
+      amount: input.amount,
+      paid_at: paidAt,
+    },
+    { onConflict: "turnover_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  if (input.paid && !wasPaid) {
+    try {
+      const { data: t } = await supabase
+        .from("turnovers")
+        .select("turnover_date")
+        .eq("id", input.turnoverId)
+        .maybeSingle();
+      await notifyPaid(createAdminClient(), {
+        turnoverId: input.turnoverId,
+        date: (t?.turnover_date as string | undefined) ?? "the turnover",
+        cleanerId,
+        amount: input.amount,
+      });
+    } catch (e) {
+      console.error("payment notice failed:", e);
+    }
+  }
+
+  revalidatePath(`/turnover/${input.turnoverId}`);
+  return { ok: true };
+}
 
 /** Admin leaves a private note for the turnover's assigned cleaner. */
 export async function addCleanerNote(input: {
