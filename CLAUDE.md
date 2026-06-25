@@ -82,7 +82,7 @@ npx supabase status         # local URLs + keys
   reminders + per-type preferences + health endpoint (Phase 3); closeout
   checklist + mark-complete, guest feedback, admin→cleaner notes, per-cleaner
   history (Phase 4).
-- **Phases 5–6 (built on `phase-5-6`, verified locally, not yet merged/live):**
+- **Phases 5–6 (merged to `main`, verified; not yet deployed):**
   linen tracking (`linen_sets`, low-stock warning); payments (`payments` +
   `cleaner_rates`, private amounts, default rate + per-turnover override, yearly
   total); the profile-dropdown header. To ship: see `docs/GO_LIVE.md`.

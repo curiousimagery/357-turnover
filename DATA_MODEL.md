@@ -28,8 +28,8 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
 - **Implemented (Phase 4):** `checklist_items` + `inventory_items` (admin-editable
   closeout cheat sheets) `…020000`; `guest_feedback` `…050000`. **Cleaner notes
   are not a table** — they're `notifications` rows with `type='cleaner_note'`.
-- **Built on `phase-5-6`, not yet merged:** `payments` + `cleaner_rates`
-  (`…060000`); `linen_sets` (`…070000`).
+- **Merged to `main` (Phases 5–6), pending hosted migration:** `payments` +
+  `cleaner_rates` (`…060000`); `linen_sets` (`…070000`).
 - **Not built (deferred to backlog):** `supply_items`, `inventory_flags`,
   `maintenance_flags`, `requests`, and a dedicated `cleaner_notes` table. The
   spec still describes these; see `docs/BACKLOG.md` for their status.

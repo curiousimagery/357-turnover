@@ -9,19 +9,15 @@ When a step is done, check it off here so this file always shows what's left.
 
 ## 1. Ship Phases 5–6 (linens + payments + profile menu)
 
-Built and verified locally on the `phase-5-6` branch. To make it live:
+Merged into `main` and verified (lint + tests + build green). Two steps left —
+**apply the migrations before you push**, or the deployed `/linens` and payment
+pages will query tables that don't exist yet.
 
 - [ ] **Apply the two migrations** in the hosted SQL Editor (paste each, Run —
       both additive/safe):
   - `supabase/migrations/20260624060000_payments.sql`
   - `supabase/migrations/20260624070000_linens.sql`
-- [ ] **Merge + deploy** (Vercel auto-deploys `main`):
-  ```bash
-  git checkout main
-  ```
-  ```bash
-  git merge phase-5-6
-  ```
+- [ ] **Push to deploy** (Vercel auto-deploys `main`):
   ```bash
   git push
   ```

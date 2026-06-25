@@ -62,6 +62,7 @@ for full function. The app degrades gracefully when optional vars are absent.
 | [DECISIONS.md](DECISIONS.md) | Append-only log of notable choices and reversals. |
 | [docs/GO_LIVE.md](docs/GO_LIVE.md) | The remaining manual steps to ship the current build. |
 | [docs/BACKLOG.md](docs/BACKLOG.md) | What's next (future features + pre-launch hardening). |
+| [docs/TESTING.md](docs/TESTING.md) | How to test the notification engine (automated + live spoof). |
 
 Reference/setup how-tos: [docs/RELIABILITY.md](docs/RELIABILITY.md),
 [docs/RESEND_SETUP.md](docs/RESEND_SETUP.md),
@@ -71,6 +72,6 @@ Reference/setup how-tos: [docs/RELIABILITY.md](docs/RELIABILITY.md),
 ## Status
 
 Phases 0–4 are live (schedule sync, claiming, notifications, closeout/feedback).
-Phases 5–6 (linen tracking + payments + profile menu) are built on the
-`phase-5-6` branch, pending merge. See [docs/GO_LIVE.md](docs/GO_LIVE.md) for
-what's left to ship and [docs/BACKLOG.md](docs/BACKLOG.md) for what's next.
+Phases 5–6 (linen tracking + payments + profile menu) are merged to `main` and
+pending deploy (hosted migrations + push). See [docs/GO_LIVE.md](docs/GO_LIVE.md)
+for what's left to ship and [docs/BACKLOG.md](docs/BACKLOG.md) for what's next.
