@@ -58,7 +58,6 @@ export async function SiteHeader() {
     ? [
         { href: "/cleaners", label: "Cleaners" },
         { href: "/checklist", label: "Checklist" },
-        { href: "/linens", label: "Linens" },
         { href: "/test", label: "Test" },
         { href: "/style-guide", label: "Style Guide" },
       ]
@@ -77,6 +76,14 @@ export async function SiteHeader() {
           >
             Schedule
           </Link>
+          {signedIn && (
+            <Link
+              href="/linens"
+              className="text-caption text-muted-foreground hover:text-foreground"
+            >
+              Linens
+            </Link>
+          )}
           {adminLinks.map((l) => (
             <Link
               key={l.href}
