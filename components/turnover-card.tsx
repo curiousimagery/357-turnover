@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { formatMonthDay, formatWeekday } from "@/lib/dates";
@@ -34,6 +35,7 @@ export function TurnoverCard({
   turnover,
   action,
   readOnly = false,
+  href,
   className,
 }: {
   turnover: TurnoverCardData;
@@ -41,6 +43,8 @@ export function TurnoverCard({
   action?: React.ReactNode;
   /** Read-only schedule: no claim affordance. */
   readOnly?: boolean;
+  /** If set, the date links here (the turnover detail / closeout page). */
+  href?: string;
   className?: string;
 }) {
   const { date, isSameDay, status, source, confirmationCode, assignee } =
@@ -58,12 +62,21 @@ export function TurnoverCard({
       )}
     >
       <div className="flex flex-col gap-2">
-        <div>
-          <div className="text-display">{formatMonthDay(date)}</div>
-          <div className="text-caption text-muted-foreground">
-            {formatWeekday(date)}
+        {href ? (
+          <Link href={href} className="hover:underline">
+            <div className="text-display">{formatMonthDay(date)}</div>
+            <div className="text-caption text-muted-foreground">
+              {formatWeekday(date)}
+            </div>
+          </Link>
+        ) : (
+          <div>
+            <div className="text-display">{formatMonthDay(date)}</div>
+            <div className="text-caption text-muted-foreground">
+              {formatWeekday(date)}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {isSameDay ? (

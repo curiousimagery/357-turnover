@@ -14,6 +14,7 @@ export const NOTIFICATION_TYPES = [
   { type: "reminder", label: "Reminder before a turnover" },
   { type: "cleaner_note", label: "A note from Daniel" },
   { type: "released", label: "A cleaner released a turnover (admin)" },
+  { type: "completed", label: "A turnover was completed (admin)" },
 ] as const;
 
 export type NotificationChannel = "in_app" | "email";

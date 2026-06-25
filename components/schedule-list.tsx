@@ -98,6 +98,7 @@ export function ScheduleList({
           <div key={row.id} id={`turnover-${row.id}`}>
             <TurnoverCard
               turnover={row}
+              href={`/turnover/${row.id}`}
               className={row.id === focusId ? "ring-2 ring-primary" : undefined}
               action={
                 <RowAction

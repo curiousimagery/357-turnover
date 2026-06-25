@@ -99,3 +99,31 @@ export async function notifyAdminsReleased(
     })),
   );
 }
+
+/** Tell the admins a turnover was marked complete. */
+export async function notifyAdminsCompleted(
+  admin: SupabaseClient,
+  args: { turnoverId: string; date: string; cleanerName: string },
+): Promise<void> {
+  const { data: admins } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin")
+    .eq("active", true);
+  const recipients = (admins ?? []).map((a) => a.id as string);
+  if (recipients.length === 0) return;
+
+  const stamp = Date.now();
+  await admin.from("notifications").insert(
+    recipients.map((id) => ({
+      recipient_id: id,
+      type: "completed",
+      channel: "email",
+      turnover_id: args.turnoverId,
+      title: "Turnover completed",
+      body: `${args.cleanerName} marked the turnover on ${args.date} complete.`,
+      status: "pending",
+      dedupe_key: `completed:${args.turnoverId}:${id}:${stamp}`,
+    })),
+  );
+}
