@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
+import { RateForm } from "@/components/rate-form";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils";
@@ -38,17 +39,33 @@ export default async function CleanerHistoryPage({
     .maybeSingle();
   if (!cleaner) notFound();
 
-  const [{ data: assignments }, { data: feedback }] = await Promise.all([
-    supabase
-      .from("turnover_assignments")
-      .select("turnovers ( id, turnover_date, status )")
-      .eq("cleaner_id", id),
-    supabase
-      .from("guest_feedback")
-      .select("turnover_id, cleanliness, note, created_at")
-      .eq("created_by", id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: assignments }, { data: feedback }, { data: payments }, { data: rate }] =
+    await Promise.all([
+      supabase
+        .from("turnover_assignments")
+        .select("turnovers ( id, turnover_date, status )")
+        .eq("cleaner_id", id),
+      supabase
+        .from("guest_feedback")
+        .select("turnover_id, cleanliness, note, created_at")
+        .eq("created_by", id)
+        .order("created_at", { ascending: false }),
+      supabase.from("payments").select("amount, paid_at").eq("cleaner_id", id),
+      supabase
+        .from("cleaner_rates")
+        .select("default_rate")
+        .eq("cleaner_id", id)
+        .maybeSingle(),
+    ]);
+
+  const year = new Date().getFullYear();
+  const yearTotal = (payments ?? []).reduce((sum, p) => {
+    const when = p.paid_at as string | null;
+    if (when && new Date(when).getFullYear() === year && p.amount != null) {
+      return sum + Number(p.amount);
+    }
+    return sum;
+  }, 0);
 
   // Notes are notifications addressed to the cleaner — only the recipient can
   // read them under RLS, so use the admin client here (page is admin-gated).
@@ -78,6 +95,20 @@ export default async function CleanerHistoryPage({
           {cleaner.role === "admin" && <StatusBadge tone="outline">Admin</StatusBadge>}
           {!cleaner.active && <StatusBadge tone="neutral">Inactive</StatusBadge>}
         </div>
+
+        <Card className="flex flex-col gap-4 p-6">
+          <h2 className="text-heading">Pay</h2>
+          <RateForm
+            cleanerId={id}
+            initial={(rate?.default_rate as number | null) ?? null}
+          />
+          <p className="text-caption text-muted-foreground">
+            Paid in {year}:{" "}
+            <span className="font-semibold text-foreground">
+              ${yearTotal.toFixed(2)}
+            </span>
+          </p>
+        </Card>
 
         <Card className="flex flex-col gap-3 p-6">
           <h2 className="text-heading">Turnovers ({turnovers.length})</h2>

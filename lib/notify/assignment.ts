@@ -100,6 +100,24 @@ export async function notifyAdminsReleased(
   );
 }
 
+/** Tell a cleaner they've been paid for a turnover. */
+export async function notifyPaid(
+  admin: SupabaseClient,
+  args: { turnoverId: string; date: string; cleanerId: string; amount: number | null },
+): Promise<void> {
+  const money = args.amount != null ? ` of $${args.amount}` : "";
+  await admin.from("notifications").insert({
+    recipient_id: args.cleanerId,
+    type: "payment_sent",
+    channel: "email",
+    turnover_id: args.turnoverId,
+    title: "You've been paid",
+    body: `Payment${money} sent for the turnover on ${args.date}.`,
+    status: "pending",
+    dedupe_key: `payment_sent:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
+  });
+}
+
 /** Admin leaves a private note for the cleaner about a turnover (cross-refs the
  *  date via the linked turnover). Reuses the inbox + email engine. */
 export async function notifyCleanerNote(
