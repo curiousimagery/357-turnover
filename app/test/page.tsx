@@ -22,13 +22,16 @@ export default async function TestPage() {
 
   const { data: rows } = await supabase
     .from("profiles")
-    .select("id, display_name")
+    .select("id, display_name, role")
     .eq("active", true)
     .order("display_name", { ascending: true });
   const recipients = (rows ?? []).map((r) => ({
     id: r.id as string,
     name: r.display_name as string,
   }));
+  const cleaners = (rows ?? [])
+    .filter((r) => r.role === "cleaner")
+    .map((r) => ({ id: r.id as string, name: r.display_name as string }));
 
   return (
     <div className="min-h-svh">
@@ -40,7 +43,7 @@ export default async function TestPage() {
             Exercise notifications without touching the real Airbnb feed.
           </p>
         </div>
-        <TestTools recipients={recipients} />
+        <TestTools recipients={recipients} cleaners={cleaners} />
       </main>
     </div>
   );
