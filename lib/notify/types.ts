@@ -11,9 +11,9 @@ export const NOTIFICATION_TYPES = [
   { type: "date_changed", label: "A turnover's date changed" },
   { type: "cancelled", label: "A turnover was cancelled" },
   { type: "became_same_day", label: "A turnover became same-day" },
-  { type: "reminder", label: "Reminder before a turnover" },
+  { type: "reminder", label: "Reminder (2 days before)" },
   { type: "payment_sent", label: "You've been paid" },
-  { type: "cleaner_note", label: "A note from Daniel" },
+  { type: "cleaner_note", label: "Follow-up note from Daniel" },
   { type: "released", label: "A cleaner released a turnover (admin)" },
   { type: "completed", label: "A turnover was completed (admin)" },
 ] as const;

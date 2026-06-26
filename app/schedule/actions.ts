@@ -10,6 +10,7 @@ import {
   notifyAvailable,
   notifyAdminsReleased,
 } from "@/lib/notify/assignment";
+import { todayInPropertyTz } from "@/lib/dates";
 
 /**
  * Claiming / assignment actions (Section 5.3). The unique(turnover_id)
@@ -249,15 +250,35 @@ export async function createManualTurnover(input: {
     return { ok: false, error: "Pick a valid date." };
   }
 
-  const { error } = await gate.supabase.from("turnovers").insert({
-    turnover_date: date,
-    source: "manual",
-    is_same_day: false,
-    status: "scheduled",
-    notes: input.notes.trim() || null,
-  });
+  const { data: created, error } = await gate.supabase
+    .from("turnovers")
+    .insert({
+      turnover_date: date,
+      source: "manual",
+      is_same_day: false,
+      status: "scheduled",
+      notes: input.notes.trim() || null,
+    })
+    .select("id")
+    .single();
 
   if (error) return { ok: false, error: error.message };
+
+  // Tell the active cleaners a new turnover is open to claim (future only).
+  // Best effort — a notice failure must never fail the creation.
+  try {
+    if (created?.id && date >= todayInPropertyTz()) {
+      const admin = createAdminClient();
+      await notifyAvailable(admin, {
+        turnoverId: created.id as string,
+        date,
+        excludeCleanerId: null,
+      });
+    }
+  } catch (e) {
+    console.error("manual turnover notice failed:", e);
+  }
+
   revalidatePath("/schedule");
   return { ok: true };
 }

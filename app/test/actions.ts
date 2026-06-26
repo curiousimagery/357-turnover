@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPendingNotifications, senderConfigFromEnv } from "@/lib/notify/send";
 import { deriveNotifications, type TurnoverChange } from "@/lib/notify/derive";
-import { todayInPropertyTz } from "@/lib/dates";
+import { todayInPropertyTz, formatNiceDate } from "@/lib/dates";
 
 /** Marker stored in a spoof turnover's notes so the tool can find + clean them
  *  up. Distinctive enough that a real manual turnover won't collide. */
@@ -58,7 +58,7 @@ function sample(type: string, date: string): { title: string; body: string } {
     case "reminder":
       return { title: "Reminder: turnover coming up", body: `You're on for ${date}.` };
     case "cleaner_note":
-      return { title: "A note from Daniel", body: `A test note about the turnover on ${date}.` };
+      return { title: "Follow-up note from Daniel", body: `A test follow-up about the turnover on ${date}.` };
     case "released":
       return { title: "A turnover needs coverage", body: `A cleaner released the turnover on ${date}.` };
     default:
@@ -83,7 +83,9 @@ export async function sendTestNotification(input: {
     .order("turnover_date", { ascending: true })
     .limit(1)
     .maybeSingle();
-  const date = (t?.turnover_date as string | undefined) ?? "an upcoming date";
+  const date = t?.turnover_date
+    ? formatNiceDate(t.turnover_date as string)
+    : "an upcoming date";
 
   const s = sample(input.type, date);
   const admin = createAdminClient();

@@ -15,6 +15,8 @@
  * Reminders and payment notifications are time-/action-driven (not sync-diff
  * driven) and are produced elsewhere.
  */
+import { formatNiceDate } from "../dates";
+
 export type TurnoverChangeKind =
   | "new"
   | "cancelled"
@@ -56,6 +58,7 @@ export function deriveNotifications(
   };
 
   for (const c of changes) {
+    const d = formatNiceDate(c.date);
     switch (c.kind) {
       case "new": {
         for (const id of activeCleanerIds) {
@@ -64,7 +67,7 @@ export function deriveNotifications(
             type: "new",
             turnoverId: c.turnoverId,
             title: "New turnover available",
-            body: `A turnover on ${c.date} is open to claim.`,
+            body: `A turnover on ${d} is open to claim.`,
             dedupeKey: `new:${c.turnoverId}:${id}`,
           });
         }
@@ -78,7 +81,7 @@ export function deriveNotifications(
             type: "cancelled",
             turnoverId: c.turnoverId,
             title: "Turnover cancelled",
-            body: `Your turnover on ${c.date} was cancelled.`,
+            body: `Your turnover on ${d} was cancelled.`,
             dedupeKey: `cancelled:${c.turnoverId}:${c.assigneeId}`,
           });
         }
@@ -86,13 +89,14 @@ export function deriveNotifications(
       }
 
       case "date_changed": {
+        const prevD = c.previousDate ? formatNiceDate(c.previousDate) : "a previous date";
         if (c.assigneeId) {
           push({
             recipientId: c.assigneeId,
             type: "date_changed",
             turnoverId: c.turnoverId,
             title: "Turnover date changed",
-            body: `Your turnover moved from ${c.previousDate} to ${c.date}. It's open to claim again.`,
+            body: `Your turnover moved from ${prevD} to ${d}. It's open to claim again.`,
             dedupeKey: `date_changed:${c.turnoverId}:${c.assigneeId}:${c.date}`,
           });
         }
@@ -103,7 +107,7 @@ export function deriveNotifications(
             type: "date_changed",
             turnoverId: c.turnoverId,
             title: "New turnover available",
-            body: `A turnover on ${c.date} is open to claim.`,
+            body: `A turnover on ${d} is open to claim.`,
             dedupeKey: `date_changed:${c.turnoverId}:${id}:${c.date}`,
           });
         }
@@ -117,7 +121,7 @@ export function deriveNotifications(
             type: "became_same_day",
             turnoverId: c.turnoverId,
             title: "Heads up: now a same-day turnover",
-            body: `Your turnover on ${c.date} is now same-day — a guest checks in that day, so timing is tight.`,
+            body: `Your turnover on ${d} is now same-day — a guest checks in that day, so timing is tight.`,
             dedupeKey: `became_same_day:${c.turnoverId}:${c.assigneeId}`,
           });
         }

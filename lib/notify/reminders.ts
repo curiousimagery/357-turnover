@@ -7,7 +7,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { todayInPropertyTz } from "../dates";
+import { todayInPropertyTz, formatNiceDate } from "../dates";
 
 export const REMINDER_DAYS = 2;
 
@@ -33,8 +33,8 @@ export function planReminders(claimed: ClaimedTurnover[]): PlannedReminder[] {
     turnoverId: c.turnoverId,
     title: "Reminder: turnover coming up",
     body: c.isSameDay
-      ? `You're on for ${c.date} — it's a same-day turnover, so timing is tight.`
-      : `You're on for ${c.date}.`,
+      ? `You're on for ${formatNiceDate(c.date)} — it's a same-day turnover, so timing is tight.`
+      : `You're on for ${formatNiceDate(c.date)}.`,
     dedupeKey: `reminder:${c.turnoverId}:${c.cleanerId}`,
   }));
 }

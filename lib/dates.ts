@@ -12,10 +12,21 @@ const MONTH_DAY = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const NICE_DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
 const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "long" });
 
 export function formatMonthDay(iso: string): string {
   return MONTH_DAY.format(parseDateOnly(iso));
+}
+
+/** Friendly, unambiguous date for human-facing messages: "Jul 10, 2026".
+ *  Use in notification copy; keep raw ISO (YYYY-MM-DD) for dedupe keys + sorting. */
+export function formatNiceDate(iso: string): string {
+  return NICE_DATE.format(parseDateOnly(iso));
 }
 
 export function formatWeekday(iso: string): string {

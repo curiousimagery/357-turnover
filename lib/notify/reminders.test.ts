@@ -11,7 +11,7 @@ describe("planReminders", () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ recipientId: "avery", turnoverId: "t1" });
     expect(out[0].dedupeKey).toBe("reminder:t1:avery");
-    expect(out[0].body).toContain("2026-07-10");
+    expect(out[0].body).toContain("Jul 10, 2026");
   });
 
   it("calls out same-day turnovers", () => {

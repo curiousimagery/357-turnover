@@ -8,6 +8,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { formatNiceDate } from "../dates";
+
 export async function notifyAssigned(
   admin: SupabaseClient,
   args: { turnoverId: string; date: string; cleanerId: string },
@@ -18,7 +20,7 @@ export async function notifyAssigned(
     channel: "email",
     turnover_id: args.turnoverId,
     title: "You've been assigned a turnover",
-    body: `You're now on for the turnover on ${args.date}.`,
+    body: `You're now on for the turnover on ${formatNiceDate(args.date)}.`,
     status: "pending",
     dedupe_key: `assigned:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
@@ -34,7 +36,7 @@ export async function notifyRemoved(
     channel: "email",
     turnover_id: args.turnoverId,
     title: "You've been taken off a turnover",
-    body: `You're no longer assigned the turnover on ${args.date}.`,
+    body: `You're no longer assigned the turnover on ${formatNiceDate(args.date)}.`,
     status: "pending",
     dedupe_key: `unassigned:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
@@ -64,7 +66,7 @@ export async function notifyAvailable(
       channel: "email",
       turnover_id: args.turnoverId,
       title: "A turnover is open",
-      body: `The turnover on ${args.date} is open to claim.`,
+      body: `The turnover on ${formatNiceDate(args.date)} is open to claim.`,
       status: "pending",
       dedupe_key: `available:${args.turnoverId}:${id}:${stamp}`,
     })),
@@ -93,7 +95,7 @@ export async function notifyAdminsReleased(
       channel: "email",
       turnover_id: args.turnoverId,
       title: "A turnover needs coverage",
-      body: `${args.releasedByName} released the turnover on ${args.date}. It's back in the unclaimed pool.`,
+      body: `${args.releasedByName} released the turnover on ${formatNiceDate(args.date)}. It's back in the unclaimed pool.`,
       status: "pending",
       dedupe_key: `released:${args.turnoverId}:${id}:${stamp}`,
     })),
@@ -112,7 +114,7 @@ export async function notifyPaid(
     channel: "email",
     turnover_id: args.turnoverId,
     title: "You've been paid",
-    body: `Payment${money} sent for the turnover on ${args.date}.`,
+    body: `Payment${money} sent for the turnover on ${formatNiceDate(args.date)}.`,
     status: "pending",
     dedupe_key: `payment_sent:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
@@ -129,7 +131,7 @@ export async function notifyCleanerNote(
     type: "cleaner_note",
     channel: "email",
     turnover_id: args.turnoverId,
-    title: `A note from Daniel — ${args.date} turnover`,
+    title: `Follow-up note from Daniel — ${formatNiceDate(args.date)} turnover`,
     body: args.note,
     status: "pending",
     dedupe_key: `cleaner_note:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
@@ -157,7 +159,7 @@ export async function notifyAdminsCompleted(
       channel: "email",
       turnover_id: args.turnoverId,
       title: "Turnover completed",
-      body: `${args.cleanerName} marked the turnover on ${args.date} complete.`,
+      body: `${args.cleanerName} marked the turnover on ${formatNiceDate(args.date)} complete.`,
       status: "pending",
       dedupe_key: `completed:${args.turnoverId}:${id}:${stamp}`,
     })),

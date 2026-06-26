@@ -13,7 +13,7 @@ describe("deriveNotifications — new turnover", () => {
     expect(out).toHaveLength(3);
     expect(out.every((n) => n.type === "new")).toBe(true);
     expect(new Set(out.map((n) => n.recipientId))).toEqual(new Set(CLEANERS));
-    expect(out[0].body).toContain("2026-07-10");
+    expect(out[0].body).toContain("Jul 10, 2026");
   });
 });
 
@@ -53,8 +53,8 @@ describe("deriveNotifications — date changed", () => {
     // avery gets the "moved" note; jordan + riley get "available"
     expect(out).toHaveLength(3);
     const avery = out.find((n) => n.recipientId === "avery");
-    expect(avery?.body).toContain("2026-07-10");
-    expect(avery?.body).toContain("2026-07-12");
+    expect(avery?.body).toContain("Jul 10, 2026");
+    expect(avery?.body).toContain("Jul 12, 2026");
     const others = out.filter((n) => n.recipientId !== "avery");
     expect(others.map((n) => n.recipientId).sort()).toEqual(["jordan", "riley"]);
   });
