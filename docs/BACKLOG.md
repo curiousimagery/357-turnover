@@ -57,6 +57,12 @@ Storage stays per-type (different authors, shapes, visibility) — "sibling" is 
 coordination-requests flow (5.10): a shared prep note covers luggage / early
 check-in without new request tables.
 
+**Decided — the turnover detail is a dedicated page** (`/turnover/[id]`): every
+card links to it, message deep-links go straight there (works for past
+turnovers), and it carries claim / assign / release + the three notes + a
+prominent "back to schedule." This retires the in-list scroll-and-highlight (so
+the light-yellow focus idea is moot).
+
 ## Near-term feature: view past / historical turnovers
 
 Today the schedule hard-filters to upcoming (`turnover_date >= today`,
@@ -66,12 +72,25 @@ per-cleaner page — so once a date passes, a turnover and its feedback/payment 
 off. **Not in the spec** (it's upcoming-oriented). A real gap, sharpest for
 payments: a cleaner can't see their own paid/unpaid history.
 
-- Add a **time scope** (Upcoming / Past) as a control *orthogonal* to the
-  All/Mine/Unclaimed ownership filter, reusing the same list + cards. Default
-  Upcoming.
-- Past turnovers render read-only (no claim actions; show completed / paid /
-  cancelled state). Admin sees all; a cleaner sees their own.
-- Mostly relaxing the `.gte` date filter by scope + one toggle — low complexity.
+**Decided — three independent pickers** on the schedule (default = all upcoming):
+- **Who:** Mine / Everyone (admin also gets per-cleaner by name).
+- **When:** Upcoming / Historic / All.
+- **Status:** Claimed / Unclaimed / All.
+
+Reuse the same list + cards; past turnovers render read-only. Cleaners see their
+own, admin sees all. The dedicated turnover page (above) is the deep-link target
+for historic turnovers. Mostly relaxing the `.gte` filter + the picker UI.
+
+## Near-term: notification cleanup (decided)
+
+- **Intent-grouped preferences.** Collapse the cleaner-facing toggles into ~4
+  categories — "A turnover needs claiming" (new / reopened / date-moved), "A
+  change to one you've claimed" (cancelled / removed / date-changed / now
+  same-day), "Reminders (2 days before)", "Follow-up note from Daniel". Hide
+  admin-only types (completed, coverage alerts) from cleaners. Copy stays
+  specific; only the toggles consolidate.
+- _Done this session:_ friendlier dates in messages ("Jul 10, 2026"), clearer
+  follow-up-note + reminder labels, and manual turnovers now notify cleaners.
 
 ## Deferred spec features (in the spec, intentionally not built)
 
