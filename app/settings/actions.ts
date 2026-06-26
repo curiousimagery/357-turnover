@@ -4,18 +4,21 @@ import { headers } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
 import { isCleanerTagColor } from "@/lib/cleaner-tags";
+import { NOTIFICATION_CATEGORIES } from "@/lib/notify/types";
 
 export type SaveProfileResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Persist the parts of a profile a user may edit themselves (Section 4.2):
- * display name, payment preference, and tag color. RLS guarantees a user can
- * only update their own row; we also scope by id defensively.
+ * One save for everything about you: the editable profile fields (display name,
+ * payment preference, tag color) AND notification preferences, in a single call
+ * so the settings page has one consistent save model. Notification categories
+ * fan out to their member `type`s. RLS scopes both writes to the current user.
  */
-export async function saveProfile(input: {
+export async function saveAccountSettings(input: {
   displayName: string;
   paymentPreference: string;
   color: string;
+  prefs: Record<string, { in_app: boolean; email: boolean }>;
 }): Promise<SaveProfileResult> {
   const supabase = await createClient();
   const {
@@ -30,7 +33,7 @@ export async function saveProfile(input: {
     return { ok: false, error: "Pick a tag color from the palette." };
   }
 
-  const { error } = await supabase
+  const { error: profileErr } = await supabase
     .from("profiles")
     .update({
       display_name: displayName,
@@ -38,8 +41,24 @@ export async function saveProfile(input: {
       color: input.color,
     })
     .eq("id", user.id);
+  if (profileErr) return { ok: false, error: profileErr.message };
 
-  if (error) return { ok: false, error: error.message };
+  // A category toggle persists every notification `type` it covers.
+  const rows: { user_id: string; type: string; in_app: boolean; email: boolean }[] = [];
+  for (const cat of NOTIFICATION_CATEGORIES) {
+    const v = input.prefs[cat.key];
+    if (!v) continue; // category not shown to this user
+    for (const type of cat.types) {
+      rows.push({ user_id: user.id, type, in_app: v.in_app, email: v.email });
+    }
+  }
+  if (rows.length > 0) {
+    const { error: prefErr } = await supabase
+      .from("notification_preferences")
+      .upsert(rows, { onConflict: "user_id,type" });
+    if (prefErr) return { ok: false, error: prefErr.message };
+  }
+
   return { ok: true };
 }
 
@@ -74,37 +93,6 @@ export async function updateEmail(newEmail: string): Promise<SaveProfileResult> 
     { email },
     { emailRedirectTo: `${origin}/auth/confirm?next=/settings` },
   );
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
-
-/** Toggle one channel (in_app / email) for one notification type. Missing row =
- *  both on, so we upsert and set only the toggled column. */
-export async function setNotificationPreference(input: {
-  type: string;
-  channel: "in_app" | "email";
-  value: boolean;
-}): Promise<SaveProfileResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "You need to be signed in." };
-  if (input.channel !== "in_app" && input.channel !== "email") {
-    return { ok: false, error: "Unknown channel." };
-  }
-
-  const payload: {
-    user_id: string;
-    type: string;
-    in_app?: boolean;
-    email?: boolean;
-  } = { user_id: user.id, type: input.type };
-  payload[input.channel] = input.value;
-
-  const { error } = await supabase
-    .from("notification_preferences")
-    .upsert(payload, { onConflict: "user_id,type" });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

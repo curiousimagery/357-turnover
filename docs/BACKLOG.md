@@ -17,8 +17,9 @@ deferred features and enhancements.
   delivery. Catch functional bugs, UX dead-ends, copy problems. Write a short
   scripted checklist as we go.
 - **UX cleanup.**
-  - *Account settings consolidation* — unify the sections into one coherent page
-    with a consistent save model (today it mixes two save buttons + autosave).
+  - *Account settings consolidation* — **DONE.** Profile + tag + payment +
+    notifications now save with one "Save settings" button; the sign-in email is
+    the one separate action (it needs email confirmation).
   - *Deactivated-cleaner affordance* — a paused cleaner is blocked from claiming
     but isn't told why. Show a friendly "your account is paused — contact Daniel"
     state instead of silent claim errors.
@@ -81,16 +82,15 @@ Reuse the same list + cards; past turnovers render read-only. Cleaners see their
 own, admin sees all. The dedicated turnover page (above) is the deep-link target
 for historic turnovers. Mostly relaxing the `.gte` filter + the picker UI.
 
-## Near-term: notification cleanup (decided)
+## Notification cleanup — DONE
 
-- **Intent-grouped preferences.** Collapse the cleaner-facing toggles into ~4
-  categories — "A turnover needs claiming" (new / reopened / date-moved), "A
-  change to one you've claimed" (cancelled / removed / date-changed / now
-  same-day), "Reminders (2 days before)", "Follow-up note from Daniel". Hide
-  admin-only types (completed, coverage alerts) from cleaners. Copy stays
-  specific; only the toggles consolidate.
-- _Done this session:_ friendlier dates in messages ("Jul 10, 2026"), clearer
-  follow-up-note + reminder labels, and manual turnovers now notify cleaners.
+- **Intent-grouped preferences** — settings now show ~5 category toggles
+  (claimable / changes to one you're on / reminders / follow-up notes /
+  payments) instead of 12 raw types; admin-only categories (coverage &
+  completion) are hidden from cleaners. Each category fans out to its member
+  types on save. Message copy stays specific per type.
+- Friendlier dates in messages ("Jul 10, 2026"), clearer follow-up-note +
+  reminder labels, and manual turnovers now notify cleaners.
 
 ## Deferred spec features (in the spec, intentionally not built)
 

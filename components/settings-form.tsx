@@ -8,15 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CleanerTag } from "@/components/cleaner-tag";
 import { TagColorPicker } from "@/components/tag-color-picker";
+import {
+  NotificationPreferences,
+  type CategoryPrefMap,
+} from "@/components/notification-preferences";
 import { getInitials } from "@/lib/utils";
 import { DEFAULT_TAG_COLOR } from "@/lib/cleaner-tags";
-import { saveProfile } from "@/app/settings/actions";
+import { saveAccountSettings } from "@/app/settings/actions";
 
+/**
+ * Everything about you, saved with one button: profile fields, tag, payment
+ * preference, and notification preferences. (Changing your sign-in email is a
+ * separate verification flow — see EmailSettings.)
+ */
 export function SettingsForm({
   initial,
+  initialPrefs,
+  isAdmin,
   canSave,
 }: {
   initial: { displayName: string; paymentPreference: string; color: string };
+  initialPrefs: CategoryPrefMap;
+  isAdmin: boolean;
   canSave: boolean;
 }) {
   const [displayName, setDisplayName] = useState(initial.displayName);
@@ -24,15 +37,17 @@ export function SettingsForm({
     initial.paymentPreference,
   );
   const [color, setColor] = useState(initial.color || DEFAULT_TAG_COLOR);
+  const [prefs, setPrefs] = useState<CategoryPrefMap>(initialPrefs);
   const [pending, startTransition] = useTransition();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await saveProfile({
+      const result = await saveAccountSettings({
         displayName,
         paymentPreference,
         color,
+        prefs,
       });
       if (result.ok) toast.success("Settings saved");
       else toast.error(result.error);
@@ -81,6 +96,20 @@ export function SettingsForm({
         <p className="text-caption text-muted-foreground">
           Visible only to you and the admin — never to other cleaners.
         </p>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-border pt-8">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-heading">Notifications</h2>
+          <p className="text-caption text-muted-foreground">
+            Choose how you hear about each kind of update. Unset means both on.
+          </p>
+        </div>
+        <NotificationPreferences
+          value={prefs}
+          onChange={setPrefs}
+          isAdmin={isAdmin}
+        />
       </div>
 
       <div className="flex items-center gap-4">

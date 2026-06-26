@@ -1,44 +1,37 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
-
 import { Checkbox } from "@/components/ui/checkbox";
-import { NOTIFICATION_TYPES, type NotificationChannel } from "@/lib/notify/types";
-import { setNotificationPreference } from "@/app/settings/actions";
+import { NOTIFICATION_CATEGORIES } from "@/lib/notify/types";
 
-export type PrefMap = Record<string, { in_app: boolean; email: boolean }>;
+/** Per-category notification preference (in-app + email), keyed by category. */
+export type CategoryPrefMap = Record<string, { in_app: boolean; email: boolean }>;
 
 /**
- * Per-type notification preferences: an In-app and an Email switch for each kind
- * of notification. Missing = both on (opt-out). Saves on toggle.
+ * Notification preferences as a small set of intent-based categories (not one
+ * row per raw type). Controlled by the parent form so it saves with everything
+ * else — one consistent save. Admin-only categories are hidden from cleaners.
  */
-export function NotificationPreferences({ initial }: { initial: PrefMap }) {
-  const [prefs, setPrefs] = useState<PrefMap>(() => {
-    const filled: PrefMap = {};
-    for (const t of NOTIFICATION_TYPES) {
-      filled[t.type] = initial[t.type] ?? { in_app: true, email: true };
-    }
-    return filled;
-  });
-  const [, startTransition] = useTransition();
+export function NotificationPreferences({
+  value,
+  onChange,
+  isAdmin,
+}: {
+  value: CategoryPrefMap;
+  onChange: (next: CategoryPrefMap) => void;
+  isAdmin: boolean;
+}) {
+  const cats = NOTIFICATION_CATEGORIES.filter((c) => isAdmin || !c.adminOnly);
 
-  function toggle(type: string, channel: NotificationChannel, value: boolean) {
-    setPrefs((p) => ({ ...p, [type]: { ...p[type], [channel]: value } }));
-    startTransition(async () => {
-      const result = await setNotificationPreference({ type, channel, value });
-      if (!result.ok) {
-        toast.error(result.error);
-        setPrefs((p) => ({ ...p, [type]: { ...p[type], [channel]: !value } }));
-      }
-    });
+  function set(key: string, channel: "in_app" | "email", v: boolean) {
+    const cur = value[key] ?? { in_app: true, email: true };
+    onChange({ ...value, [key]: { ...cur, [channel]: v } });
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <span className="flex-1 text-caption font-semibold text-muted-foreground">
-          Notification
+          Notify me about
         </span>
         <span className="w-16 text-center text-caption font-semibold text-muted-foreground">
           In-app
@@ -47,25 +40,31 @@ export function NotificationPreferences({ initial }: { initial: PrefMap }) {
           Email
         </span>
       </div>
-      {NOTIFICATION_TYPES.map((t) => (
-        <div key={t.type} className="flex items-center gap-4">
-          <span className="flex-1 text-body text-foreground">{t.label}</span>
-          <span className="flex w-16 justify-center">
-            <Checkbox
-              checked={prefs[t.type].in_app}
-              onCheckedChange={(v) => toggle(t.type, "in_app", v === true)}
-              aria-label={`${t.label} — in-app`}
-            />
-          </span>
-          <span className="flex w-16 justify-center">
-            <Checkbox
-              checked={prefs[t.type].email}
-              onCheckedChange={(v) => toggle(t.type, "email", v === true)}
-              aria-label={`${t.label} — email`}
-            />
-          </span>
-        </div>
-      ))}
+      {cats.map((c) => {
+        const v = value[c.key] ?? { in_app: true, email: true };
+        return (
+          <div key={c.key} className="flex items-start gap-4">
+            <div className="flex flex-1 flex-col gap-1">
+              <span className="text-body text-foreground">{c.label}</span>
+              <span className="text-caption text-muted-foreground">{c.description}</span>
+            </div>
+            <span className="flex w-16 justify-center pt-1">
+              <Checkbox
+                checked={v.in_app}
+                onCheckedChange={(x) => set(c.key, "in_app", x === true)}
+                aria-label={`${c.label} — in-app`}
+              />
+            </span>
+            <span className="flex w-16 justify-center pt-1">
+              <Checkbox
+                checked={v.email}
+                onCheckedChange={(x) => set(c.key, "email", x === true)}
+                aria-label={`${c.label} — email`}
+              />
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
