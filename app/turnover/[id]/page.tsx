@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { Star } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Star } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
 import { Card } from "@/components/ui/card";
@@ -8,9 +9,13 @@ import { CleanerTag } from "@/components/cleaner-tag";
 import { CloseoutActions } from "@/components/closeout-actions";
 import { CleanerNoteForm } from "@/components/cleaner-note-form";
 import { PaymentControls } from "@/components/payment-controls";
+import { TurnoverActions } from "@/components/turnover-actions";
+import { PrepNotes } from "@/components/prep-notes";
+import { GuestFeedbackForm } from "@/components/guest-feedback-form";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils";
-import { formatMonthDay, formatWeekday } from "@/lib/dates";
+import { formatMonthDay, formatWeekday, formatNiceDate } from "@/lib/dates";
 
 export const metadata = { title: "Turnover — 357 Oasis Turnovers" };
 
@@ -57,7 +62,7 @@ export default async function TurnoverDetailPage({
   const { data: turnover } = await supabase
     .from("turnovers")
     .select(
-      "id, turnover_date, status, is_same_day, source, confirmation_code, turnover_assignments ( cleaner_id, profiles ( display_name, color ) )",
+      "id, turnover_date, status, is_same_day, source, confirmation_code, notes, turnover_assignments ( cleaner_id, profiles ( display_name, color ) )",
     )
     .eq("id", id)
     .maybeSingle();
@@ -71,8 +76,9 @@ export default async function TurnoverDetailPage({
   const isAssigned = assignment?.cleaner_id === user.id;
   const status = turnover.status as string;
   const canComplete = (isAdmin || isAssigned) && status === "scheduled";
+  const canSeeNotes = isAdmin || isAssigned;
 
-  const [{ data: checklist }, { data: inventory }, { data: feedback }, { data: payment }] =
+  const [{ data: checklist }, { data: inventory }, { data: feedback }, { data: payment }, { data: cleanerRows }] =
     await Promise.all([
       supabase
         .from("checklist_items")
@@ -94,7 +100,34 @@ export default async function TurnoverDetailPage({
         .select("amount, paid_at")
         .eq("turnover_id", id)
         .maybeSingle(),
+      isAdmin
+        ? supabase
+            .from("profiles")
+            .select("id, display_name, color")
+            .eq("active", true)
+            .eq("role", "cleaner")
+            .order("display_name", { ascending: true })
+        : Promise.resolve({ data: [] as { id: string; display_name: string; color: string | null }[] }),
     ]);
+
+  // Admin→cleaner notes ride the notifications table; the recipient is the
+  // assigned cleaner, so we read them with the service role (gated above).
+  let cleanerNotes: { body: string; created_at: string }[] = [];
+  if (canSeeNotes) {
+    const { data } = await createAdminClient()
+      .from("notifications")
+      .select("body, created_at")
+      .eq("turnover_id", id)
+      .eq("type", "cleaner_note")
+      .order("created_at", { ascending: false });
+    cleanerNotes = (data ?? []) as { body: string; created_at: string }[];
+  }
+
+  const cleaners = (cleanerRows ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.display_name as string,
+    color: c.color as string | null,
+  }));
 
   const paymentAmount = (payment?.amount as number | null) ?? null;
   const paid = !!payment?.paid_at;
@@ -108,10 +141,19 @@ export default async function TurnoverDetailPage({
     prefillAmount = (rate?.default_rate as number | null) ?? null;
   }
 
+  const prepNotes = (turnover.notes as string | null) ?? "";
+
   return (
     <div className="min-h-svh">
       <SiteHeader />
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8">
+        <Link
+          href="/schedule"
+          className="inline-flex items-center gap-1 text-caption font-semibold text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" /> Back to schedule
+        </Link>
+
         <div className="flex flex-col gap-2">
           <div className="text-display">{formatMonthDay(turnover.turnover_date as string)}</div>
           <div className="text-caption text-muted-foreground">
@@ -135,6 +177,17 @@ export default async function TurnoverDetailPage({
               <CleanerTag name={assignee.display_name} color={assignee.color} withName />
             )}
           </div>
+          {status === "scheduled" && (
+            <div className="pt-2">
+              <TurnoverActions
+                turnoverId={turnover.id as string}
+                assigneeId={assignment?.cleaner_id ?? null}
+                isAdmin={isAdmin}
+                currentUserId={user.id}
+                cleaners={cleaners}
+              />
+            </div>
+          )}
         </div>
 
         {canComplete && (
@@ -144,13 +197,44 @@ export default async function TurnoverDetailPage({
           </Card>
         )}
 
-        {isAdmin && assignee && (
+        <Card className="flex flex-col gap-3 p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-heading">Prep notes</h2>
+            <p className="text-caption text-muted-foreground">
+              Shared between you and Daniel — early check-in, special requests,
+              lost &amp; found.
+            </p>
+          </div>
+          <PrepNotes
+            turnoverId={turnover.id as string}
+            initial={prepNotes}
+            canEdit={isAdmin || isAssigned}
+          />
+        </Card>
+
+        {canSeeNotes && (
           <Card className="flex flex-col gap-4 p-6">
-            <h2 className="text-heading">Note for the cleaner</h2>
-            <CleanerNoteForm
-              turnoverId={turnover.id as string}
-              cleanerName={assignee.display_name}
-            />
+            <h2 className="text-heading">Follow-up notes from Daniel</h2>
+            {cleanerNotes.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {cleanerNotes.map((n, i) => (
+                  <div key={i} className="flex flex-col gap-1">
+                    <p className="whitespace-pre-wrap text-body text-foreground">{n.body}</p>
+                    <span className="text-caption text-muted-foreground">
+                      {formatNiceDate(String(n.created_at).slice(0, 10))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-caption text-muted-foreground">No notes yet.</p>
+            )}
+            {isAdmin && assignee && (
+              <CleanerNoteForm
+                turnoverId={turnover.id as string}
+                cleanerName={assignee.display_name}
+              />
+            )}
           </Card>
         )}
 
@@ -186,10 +270,10 @@ export default async function TurnoverDetailPage({
           <ItemList items={(inventory ?? []) as Item[]} />
         </Card>
 
-        {(feedback ?? []).length > 0 && (
-          <Card className="flex flex-col gap-3 p-6">
-            <h2 className="text-heading">Guest feedback</h2>
-            {(feedback ?? []).map((f, i) => (
+        <Card className="flex flex-col gap-4 p-6">
+          <h2 className="text-heading">Guest feedback</h2>
+          {(feedback ?? []).length > 0 ? (
+            (feedback ?? []).map((f, i) => (
               <div key={i} className="flex flex-col gap-1">
                 {f.cleanliness != null && (
                   <div className="flex gap-1" aria-label={`${f.cleanliness} of 5`}>
@@ -208,9 +292,16 @@ export default async function TurnoverDetailPage({
                 )}
                 {f.note && <p className="text-body text-foreground">{f.note as string}</p>}
               </div>
-            ))}
-          </Card>
-        )}
+            ))
+          ) : (
+            <p className="text-caption text-muted-foreground">No feedback yet.</p>
+          )}
+          {status === "completed" && (isAdmin || isAssigned) && (
+            <div className="border-t border-border pt-4">
+              <GuestFeedbackForm turnoverId={turnover.id as string} />
+            </div>
+          )}
+        </Card>
       </main>
     </div>
   );

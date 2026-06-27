@@ -141,7 +141,7 @@ export function InboxList({ items }: { items: InboxItem[] }) {
               <p className="text-caption text-muted-foreground">{item.body}</p>
               {item.turnoverId && (
                 <Link
-                  href={`/schedule?focus=${item.turnoverId}`}
+                  href={`/turnover/${item.turnoverId}`}
                   className="text-caption font-semibold text-primary hover:underline"
                 >
                   View turnover →

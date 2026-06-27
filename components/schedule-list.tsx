@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,11 @@ import {
 import { Card } from "@/components/ui/card";
 import { TurnoverCard, type TurnoverCardData } from "@/components/turnover-card";
 import {
-  ScheduleFilter,
-  type ScheduleFilterValue,
-} from "@/components/schedule-filter";
+  ScheduleFilters,
+  type WhoFilter,
+  type WhenFilter,
+  type StatusFilter,
+} from "@/components/schedule-filters";
 import { CleanerTag } from "@/components/cleaner-tag";
 import { todayInPropertyTz } from "@/lib/dates";
 import {
@@ -32,42 +34,45 @@ export type ScheduleRow = TurnoverCardData & { assigneeId: string | null };
 export type Cleaner = { id: string; name: string; color?: string | null };
 
 /**
- * The interactive schedule (Section 5.3). Filtering happens on the client over
- * the full list; claim / release / reassign call server actions, and the
- * database's unique(turnover_id) constraint is what actually prevents a
- * double-booking — the UI just reports the result.
+ * The interactive schedule (Section 5.3). Three independent filters — Who /
+ * When (incl. historic) / Status — run on the client over the full list. Claim /
+ * release / reassign call server actions; the database's unique(turnover_id)
+ * constraint is what actually prevents a double-booking.
  */
 export function ScheduleList({
   rows,
   currentUserId,
   isAdmin,
   cleaners,
-  focusId,
+  today,
 }: {
   rows: ScheduleRow[];
   currentUserId: string;
   isAdmin: boolean;
   cleaners: Cleaner[];
-  focusId?: string | null;
+  today: string;
 }) {
-  const [filter, setFilter] = useState<ScheduleFilterValue>("all");
+  const [who, setWho] = useState<WhoFilter>("everyone");
+  const [when, setWhen] = useState<WhenFilter>("upcoming");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!focusId) return;
-    const el = document.getElementById(`turnover-${focusId}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [focusId]);
 
   const visible = useMemo(
     () =>
       rows.filter((r) => {
-        if (filter === "mine") return r.assigneeId === currentUserId;
-        if (filter === "unclaimed")
-          return r.assigneeId === null && r.status === "scheduled";
+        if (who === "mine" && r.assigneeId !== currentUserId) return false;
+        if (who !== "mine" && who !== "everyone" && r.assigneeId !== who) return false;
+
+        if (when === "upcoming" && r.date < today) return false;
+        if (when === "historic" && r.date >= today) return false;
+
+        if (status === "claimed" && r.assigneeId === null) return false;
+        if (status === "unclaimed" && !(r.assigneeId === null && r.status === "scheduled"))
+          return false;
+
         return true;
       }),
-    [rows, filter, currentUserId],
+    [rows, who, when, status, currentUserId, today],
   );
 
   function run(action: () => Promise<ActionResult>, success: string) {
@@ -80,27 +85,33 @@ export function ScheduleList({
 
   return (
     <div className="flex flex-col gap-4">
-      <ScheduleFilter value={filter} onValueChange={setFilter} />
+      <ScheduleFilters
+        who={who}
+        when={when}
+        status={status}
+        onWho={setWho}
+        onWhen={setWhen}
+        onStatus={setStatus}
+        cleaners={cleaners}
+        isAdmin={isAdmin}
+      />
 
       {visible.length === 0 ? (
         <Card className="flex flex-col gap-2 p-6">
           <p className="text-body text-foreground">Nothing here.</p>
           <p className="text-caption text-muted-foreground">
-            {filter === "mine"
-              ? "You haven't claimed any upcoming turnovers yet."
-              : filter === "unclaimed"
-                ? "Every upcoming turnover is claimed."
-                : "No upcoming turnovers."}
+            No turnovers match these filters.
           </p>
         </Card>
       ) : (
         visible.map((row) => (
-          <div key={row.id} id={`turnover-${row.id}`}>
-            <TurnoverCard
-              turnover={row}
-              href={`/turnover/${row.id}`}
-              className={row.id === focusId ? "ring-2 ring-primary" : undefined}
-              action={
+          <TurnoverCard
+            key={row.id}
+            turnover={row}
+            href={`/turnover/${row.id}`}
+            readOnly={when === "historic"}
+            action={
+              when === "historic" ? undefined : (
                 <RowAction
                   row={row}
                   currentUserId={currentUserId}
@@ -109,9 +120,9 @@ export function ScheduleList({
                   pending={pending}
                   run={run}
                 />
-              }
-            />
-          </div>
+              )
+            }
+          />
         ))
       )}
     </div>
@@ -135,6 +146,9 @@ function RowAction({
 }) {
   const open = row.assigneeId === null && row.status === "scheduled";
   const mine = row.assigneeId === currentUserId;
+
+  // No claim/reassign affordance once it's done or cancelled.
+  if (row.status !== "scheduled") return null;
 
   if (isAdmin) {
     return (
@@ -219,7 +233,6 @@ function RowAction({
     );
   }
 
-  // Claimed by someone else — the cleaner tag already tells the story.
   return null;
 }
 

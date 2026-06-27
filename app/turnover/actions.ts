@@ -133,6 +133,107 @@ export async function addCleanerNote(input: {
   return { ok: true };
 }
 
+/** Was the current user an admin or the turnover's assigned cleaner? */
+async function adminOrAssigned(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  turnoverId: string,
+): Promise<{ isAdmin: boolean; isAssigned: boolean }> {
+  const [{ data: me }, { data: assignment }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", userId).maybeSingle(),
+    supabase
+      .from("turnover_assignments")
+      .select("cleaner_id")
+      .eq("turnover_id", turnoverId)
+      .maybeSingle(),
+  ]);
+  return {
+    isAdmin: me?.role === "admin",
+    isAssigned: assignment?.cleaner_id === userId,
+  };
+}
+
+/**
+ * Shared "prep notes" on a turnover (early check-in, special requests, lost &
+ * found). Both the admin and the assigned cleaner can edit; stored on
+ * `turnovers.notes`. Written via the admin client after gating, since cleaners
+ * can't write turnovers directly.
+ */
+export async function savePrepNotes(input: {
+  turnoverId: string;
+  notes: string;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const { isAdmin, isAssigned } = await adminOrAssigned(
+    supabase,
+    user.id,
+    input.turnoverId,
+  );
+  if (!isAdmin && !isAssigned) {
+    return { ok: false, error: "Only the assigned cleaner or an admin can edit notes." };
+  }
+
+  const { error } = await createAdminClient()
+    .from("turnovers")
+    .update({ notes: input.notes.trim() || null })
+    .eq("id", input.turnoverId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/turnover/${input.turnoverId}`);
+  revalidatePath("/schedule");
+  return { ok: true };
+}
+
+/**
+ * File guest feedback (cleanliness + note) independent of marking complete, so
+ * it can be added or added-to any time — including after a turnover is done.
+ * Gated to the assigned cleaner or admin.
+ */
+export async function addGuestFeedback(input: {
+  turnoverId: string;
+  cleanliness: number | null;
+  note: string;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const { isAdmin, isAssigned } = await adminOrAssigned(
+    supabase,
+    user.id,
+    input.turnoverId,
+  );
+  if (!isAdmin && !isAssigned) {
+    return { ok: false, error: "Only the assigned cleaner or an admin can add feedback." };
+  }
+
+  const cleanliness =
+    input.cleanliness && input.cleanliness >= 1 && input.cleanliness <= 5
+      ? input.cleanliness
+      : null;
+  if (!cleanliness && !input.note.trim()) {
+    return { ok: false, error: "Add a rating or a note." };
+  }
+
+  const { error } = await createAdminClient().from("guest_feedback").insert({
+    turnover_id: input.turnoverId,
+    cleanliness,
+    note: input.note.trim() || null,
+    created_by: user.id,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/turnover/${input.turnoverId}`);
+  return { ok: true };
+}
+
 /**
  * Mark a turnover complete and (optionally) file guest feedback. Gated to the
  * assigned cleaner or an admin; the writes go through the admin client since

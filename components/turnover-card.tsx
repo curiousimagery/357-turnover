@@ -1,5 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
+import { StickyNote } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { formatMonthDay, formatWeekday } from "@/lib/dates";
@@ -24,6 +25,8 @@ export type TurnoverCardData = {
   /** Airbnb confirmation code, for cross-reference. Null for manual turnovers. */
   confirmationCode?: string | null;
   assignee?: { name: string; color?: string | null } | null;
+  /** Has prep notes or guest feedback — shows a small indicator. */
+  hasNotes?: boolean;
 };
 
 /**
@@ -47,7 +50,7 @@ export function TurnoverCard({
   href?: string;
   className?: string;
 }) {
-  const { date, isSameDay, status, source, confirmationCode, assignee } =
+  const { date, isSameDay, status, source, confirmationCode, assignee, hasNotes } =
     turnover;
   const isOpen = status === "scheduled" && !assignee;
   const isActive = status === "scheduled" || status === "claimed";
@@ -95,6 +98,15 @@ export function TurnoverCard({
           )}
           {source === "manual" && (
             <StatusBadge tone="outline">Manual</StatusBadge>
+          )}
+          {hasNotes && (
+            <span
+              className="inline-flex items-center gap-1 text-caption text-muted-foreground"
+              title="Has notes or feedback"
+            >
+              <StickyNote className="size-4" />
+              Notes
+            </span>
           )}
         </div>
 

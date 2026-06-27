@@ -24,6 +24,7 @@ type RawRow = {
   status: TurnoverCardData["status"];
   source: TurnoverCardData["source"];
   confirmation_code: string | null;
+  notes: string | null;
   // PostgREST returns this as a single object (the unique(turnover_id)
   // constraint makes it a one-to-one), but be defensive about array too.
   turnover_assignments: RawAssignment | RawAssignment[] | null;
@@ -36,12 +37,7 @@ function firstEmbed<T>(embed: T | T[] | null | undefined): T | null {
   return embed ?? null;
 }
 
-export default async function SchedulePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ focus?: string }>;
-}) {
-  const { focus } = await searchParams;
+export default async function SchedulePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -50,25 +46,29 @@ export default async function SchedulePage({
 
   const today = todayInPropertyTz();
 
-  const [{ data: profile }, { data: rows, error }, { data: syncState }] =
-    await Promise.all([
-      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("turnovers")
-        .select(
-          "id, turnover_date, is_same_day, status, source, confirmation_code, turnover_assignments ( cleaner_id, profiles ( id, display_name, color ) )",
-        )
-        .gte("turnover_date", today)
-        .neq("status", "cancelled")
-        .order("turnover_date", { ascending: true }),
-      supabase
-        .from("sync_state")
-        .select("last_success_at")
-        .eq("id", 1)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile },
+    { data: rows, error },
+    { data: feedbackRows },
+    { data: syncState },
+  ] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("turnovers")
+      .select(
+        "id, turnover_date, is_same_day, status, source, confirmation_code, notes, turnover_assignments ( cleaner_id, profiles ( id, display_name, color ) )",
+      )
+      .neq("status", "cancelled")
+      .order("turnover_date", { ascending: true }),
+    supabase.from("guest_feedback").select("turnover_id"),
+    supabase.from("sync_state").select("last_success_at").eq("id", 1).maybeSingle(),
+  ]);
 
   const isAdmin = profile?.role === "admin";
+
+  const feedbackSet = new Set(
+    (feedbackRows ?? []).map((f) => f.turnover_id as string),
+  );
 
   const { data: cleanerRows } = await supabase
     .from("profiles")
@@ -93,6 +93,7 @@ export default async function SchedulePage({
         status: t.status,
         source: t.source,
         confirmationCode: t.confirmation_code,
+        hasNotes: !!t.notes?.trim() || feedbackSet.has(t.id),
         assignee: assignee
           ? { name: assignee.display_name, color: assignee.color }
           : null,
@@ -113,7 +114,7 @@ export default async function SchedulePage({
             )}
           </div>
           <p className="text-body text-muted-foreground">
-            Upcoming turnovers. Same-day ones are flagged.
+            Filter by who, when, and status. Same-day turnovers are flagged.
           </p>
           {isAdmin && (
             <div className="pt-2">
@@ -138,7 +139,7 @@ export default async function SchedulePage({
             currentUserId={user.id}
             isAdmin={isAdmin}
             cleaners={cleaners}
-            focusId={focus ?? null}
+            today={today}
           />
         )}
       </main>
