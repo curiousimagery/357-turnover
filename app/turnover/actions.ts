@@ -133,6 +133,48 @@ export async function addCleanerNote(input: {
   return { ok: true };
 }
 
+/**
+ * Delete a turnover. Only the admin, and only **manual** turnovers — Airbnb
+ * turnovers are owned by the calendar sync (deleting one would just reappear on
+ * the next sync, or worse, mask a real booking). The delete cascades to the
+ * assignment, feedback, and notifications.
+ */
+export async function deleteTurnover(turnoverId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (me?.role !== "admin") return { ok: false, error: "Admins only." };
+
+  const { data: t } = await supabase
+    .from("turnovers")
+    .select("source")
+    .eq("id", turnoverId)
+    .maybeSingle();
+  if (!t) return { ok: false, error: "Turnover not found." };
+  if (t.source !== "manual") {
+    return {
+      ok: false,
+      error: "Only manual turnovers can be deleted — Airbnb ones are managed by the calendar sync.",
+    };
+  }
+
+  const { error } = await createAdminClient()
+    .from("turnovers")
+    .delete()
+    .eq("id", turnoverId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/schedule");
+  return { ok: true };
+}
+
 /** Was the current user an admin or the turnover's assigned cleaner? */
 async function adminOrAssigned(
   supabase: Awaited<ReturnType<typeof createClient>>,

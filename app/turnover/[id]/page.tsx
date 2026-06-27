@@ -6,7 +6,8 @@ import { SiteHeader } from "@/components/site-header";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
-import { CloseoutActions } from "@/components/closeout-actions";
+import { CloseoutChecklist } from "@/components/closeout-checklist";
+import { DeleteTurnoverButton } from "@/components/delete-turnover-button";
 import { CleanerNoteForm } from "@/components/cleaner-note-form";
 import { PaymentControls } from "@/components/payment-controls";
 import { TurnoverActions } from "@/components/turnover-actions";
@@ -190,12 +191,17 @@ export default async function TurnoverDetailPage({
           )}
         </div>
 
-        {canComplete && (
-          <Card className="flex flex-col gap-3 p-6">
-            <p className="text-body text-foreground">Done with this turnover?</p>
-            <CloseoutActions turnoverId={turnover.id as string} />
-          </Card>
-        )}
+        <Card className="flex flex-col gap-4 p-6">
+          <h2 className="text-heading">Before you leave</h2>
+          {canComplete ? (
+            <CloseoutChecklist
+              turnoverId={turnover.id as string}
+              items={(checklist ?? []) as Item[]}
+            />
+          ) : (
+            <ItemList items={(checklist ?? []) as Item[]} />
+          )}
+        </Card>
 
         <Card className="flex flex-col gap-3 p-6">
           <div className="flex flex-col gap-1">
@@ -258,11 +264,6 @@ export default async function TurnoverDetailPage({
         )}
 
         <Card className="flex flex-col gap-4 p-6">
-          <h2 className="text-heading">Before you leave</h2>
-          <ItemList items={(checklist ?? []) as Item[]} />
-        </Card>
-
-        <Card className="flex flex-col gap-4 p-6">
           <h2 className="text-heading">Inventory refills</h2>
           <p className="text-caption text-muted-foreground">
             Flag anything low to Daniel.
@@ -302,6 +303,12 @@ export default async function TurnoverDetailPage({
             </div>
           )}
         </Card>
+
+        {isAdmin && turnover.source === "manual" && (
+          <div>
+            <DeleteTurnoverButton turnoverId={turnover.id as string} />
+          </div>
+        )}
       </main>
     </div>
   );
