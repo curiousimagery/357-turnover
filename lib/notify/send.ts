@@ -87,7 +87,7 @@ export async function sendPendingNotifications(
           from: config.from,
           to: [to],
           subject: n.title as string,
-          text: `${n.body}\n\nOpen the schedule: ${config.appUrl}/schedule`,
+          text: `${n.body}\n\nOpen the schedule: ${config.appUrl}/schedule\n\n—\nAutomated message; this address isn't monitored. Manage everything in the app.`,
         }),
       });
       if (!res.ok) throw new Error(`resend ${res.status}: ${await res.text()}`);
