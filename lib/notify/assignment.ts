@@ -8,19 +8,20 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { formatNiceDate } from "../dates";
+import { notificationCopy } from "./copy";
 
 export async function notifyAssigned(
   admin: SupabaseClient,
   args: { turnoverId: string; date: string; cleanerId: string },
 ): Promise<void> {
+  const copy = notificationCopy.assigned(args.date);
   await admin.from("notifications").insert({
     recipient_id: args.cleanerId,
     type: "assigned",
     channel: "email",
     turnover_id: args.turnoverId,
-    title: "You've been assigned a turnover",
-    body: `You're now on for the turnover on ${formatNiceDate(args.date)}.`,
+    title: copy.title,
+    body: copy.body,
     status: "pending",
     dedupe_key: `assigned:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
@@ -30,13 +31,14 @@ export async function notifyRemoved(
   admin: SupabaseClient,
   args: { turnoverId: string; date: string; cleanerId: string },
 ): Promise<void> {
+  const copy = notificationCopy.unassigned(args.date);
   await admin.from("notifications").insert({
     recipient_id: args.cleanerId,
     type: "unassigned",
     channel: "email",
     turnover_id: args.turnoverId,
-    title: "You've been taken off a turnover",
-    body: `You're no longer assigned the turnover on ${formatNiceDate(args.date)}.`,
+    title: copy.title,
+    body: copy.body,
     status: "pending",
     dedupe_key: `unassigned:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
@@ -58,6 +60,7 @@ export async function notifyAvailable(
     .filter((id) => id !== args.excludeCleanerId);
   if (recipients.length === 0) return;
 
+  const copy = notificationCopy.available(args.date);
   const stamp = Date.now();
   await admin.from("notifications").insert(
     recipients.map((id) => ({
@@ -65,8 +68,8 @@ export async function notifyAvailable(
       type: "available",
       channel: "email",
       turnover_id: args.turnoverId,
-      title: "A turnover is open",
-      body: `The turnover on ${formatNiceDate(args.date)} is open to claim.`,
+      title: copy.title,
+      body: copy.body,
       status: "pending",
       dedupe_key: `available:${args.turnoverId}:${id}:${stamp}`,
     })),
@@ -87,6 +90,7 @@ export async function notifyAdminsReleased(
   const recipients = (admins ?? []).map((a) => a.id as string);
   if (recipients.length === 0) return;
 
+  const copy = notificationCopy.released(args.date, args.releasedByName);
   const stamp = Date.now();
   await admin.from("notifications").insert(
     recipients.map((id) => ({
@@ -94,8 +98,8 @@ export async function notifyAdminsReleased(
       type: "released",
       channel: "email",
       turnover_id: args.turnoverId,
-      title: "A turnover needs coverage",
-      body: `${args.releasedByName} released the turnover on ${formatNiceDate(args.date)}. It's back in the unclaimed pool.`,
+      title: copy.title,
+      body: copy.body,
       status: "pending",
       dedupe_key: `released:${args.turnoverId}:${id}:${stamp}`,
     })),
@@ -107,14 +111,14 @@ export async function notifyPaid(
   admin: SupabaseClient,
   args: { turnoverId: string; date: string; cleanerId: string; amount: number | null },
 ): Promise<void> {
-  const money = args.amount != null ? ` of $${args.amount}` : "";
+  const copy = notificationCopy.paymentSent(args.date, args.amount);
   await admin.from("notifications").insert({
     recipient_id: args.cleanerId,
     type: "payment_sent",
     channel: "email",
     turnover_id: args.turnoverId,
-    title: "You've been paid",
-    body: `Payment${money} sent for the turnover on ${formatNiceDate(args.date)}.`,
+    title: copy.title,
+    body: copy.body,
     status: "pending",
     dedupe_key: `payment_sent:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
@@ -126,13 +130,14 @@ export async function notifyCleanerNote(
   admin: SupabaseClient,
   args: { turnoverId: string; date: string; cleanerId: string; note: string },
 ): Promise<void> {
+  const copy = notificationCopy.cleanerNote(args.date, args.note);
   await admin.from("notifications").insert({
     recipient_id: args.cleanerId,
     type: "cleaner_note",
     channel: "email",
     turnover_id: args.turnoverId,
-    title: `Follow-up note from Daniel — ${formatNiceDate(args.date)} turnover`,
-    body: args.note,
+    title: copy.title,
+    body: copy.body,
     status: "pending",
     dedupe_key: `cleaner_note:${args.turnoverId}:${args.cleanerId}:${Date.now()}`,
   });
@@ -151,6 +156,7 @@ export async function notifyAdminsCompleted(
   const recipients = (admins ?? []).map((a) => a.id as string);
   if (recipients.length === 0) return;
 
+  const copy = notificationCopy.completed(args.date, args.cleanerName);
   const stamp = Date.now();
   await admin.from("notifications").insert(
     recipients.map((id) => ({
@@ -158,8 +164,8 @@ export async function notifyAdminsCompleted(
       type: "completed",
       channel: "email",
       turnover_id: args.turnoverId,
-      title: "Turnover completed",
-      body: `${args.cleanerName} marked the turnover on ${formatNiceDate(args.date)} complete.`,
+      title: copy.title,
+      body: copy.body,
       status: "pending",
       dedupe_key: `completed:${args.turnoverId}:${id}:${stamp}`,
     })),

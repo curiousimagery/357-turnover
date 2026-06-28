@@ -58,6 +58,7 @@ export async function SiteHeader() {
     ? [
         { href: "/cleaners", label: "Cleaners" },
         { href: "/checklist", label: "Checklist" },
+        { href: "/supplies", label: "Supplies" },
         { href: "/test", label: "Test" },
         { href: "/style-guide", label: "Style Guide" },
       ]

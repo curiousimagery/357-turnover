@@ -92,31 +92,16 @@ for historic turnovers. Mostly relaxing the `.gte` filter + the picker UI.
 - Friendlier dates in messages ("Jul 10, 2026"), clearer follow-up-note +
   reminder labels, and manual turnovers now notify cleaners.
 
-## Near-term feature: supply / inventory notes (spec 5.7–5.8)
+## Supply / inventory notes (spec 5.7–5.8) — DONE (on `supplies-and-copy`)
 
-Cleaners can read the inventory **reference** sheet at closeout but have no way to
-flag "we're low on coffee / TP," and there's no single place for Daniel to see
-those flags or add his own (e.g. "guest said the first-aid kit was out of
-band-aids"). Wanted now. Recommended design:
+The last un-built feature from the original plan. Built as designed:
+`supply_notes` table (nullable `turnover_id` so the admin can file standalone
+notes), a closeout "Anything running low?" prompt, a per-turnover **Supplies**
+card (add + admin resolve), and the unified admin **`/supplies`** board (open
+flags up top with "mark restocked", restocked below). Maintenance flags (5.8)
+fold in as just another note. _Pending hosted migration — see `docs/GO_LIVE.md`._
 
-- **Storage:** a small `supply_notes` table — `id, turnover_id, author_id, body,
-  resolved bool default false, created_at`. **Needs a migration.** Attached to a
-  turnover so each note carries context (which visit); multiple notes per
-  turnover, from cleaner or admin.
-- **RLS:** admin reads/writes all and resolves; the assigned cleaner can add +
-  read on their own turnover.
-- **Closeout prompt:** in the "Before you leave" flow, an optional "Anything
-  running low?" field → files a supply note on complete.
-- **Per-turnover:** a "Supplies / running low" section on `/turnover/[id]` —
-  notes + an add form (admin on any turnover; assigned cleaner on theirs).
-- **Unified view:** a `/supplies` page (admin) listing all **unresolved** notes
-  across turnovers (date + who flagged) with "mark restocked" (resolve) + an admin
-  add — the shopping list for a resupply run.
-- Folds in maintenance flags (5.8) as just another note (add a `kind` column
-  later if we want to separate supplies vs. durable-goods).
-
-This is the **last un-built feature from the original plan** (Phase 5's inventory
-piece) — everything else in the spec is shipped.
+With this shipped, **every feature in the original spec is built.**
 
 ## Deferred spec features (in the spec, intentionally not built)
 
@@ -126,8 +111,8 @@ to be (the guiding worry is not adding complexity prematurely).
 - **Coordination requests** (spec 5.10) — structured luggage-drop / early-check-in
   request + yes/no/conditional response. Likely unnecessary if generic turnover
   notes (above) prove enough.
-- **Inventory "running low" flags + maintenance flags** (spec 5.7–5.8) — promoted
-  to near-term as **supply / inventory notes** (above).
+- **Inventory "running low" flags + maintenance flags** (spec 5.7–5.8) — **DONE**
+  as `supply_notes` (above).
 - **Guest feedback depth** — the spec's `damages` / `missing_items` fields (not
   built; today it's cleanliness + note).
 - **Durable / two-way cleaner notes** — if the one-way notification model proves
@@ -146,8 +131,12 @@ to be (the guiding worry is not adding complexity prematurely).
 
 ## Closeout & tooling
 
-- **Per-item closeout persistence.** The checklist is a reference list; ticks
-  aren't stored per turnover. Add a completions join for a recorded checkoff.
+- **Per-item closeout persistence — DONE** (on `supplies-and-copy`).
+  `turnover_checklist_completions` records each tick; they survive a reload and
+  the admin sees what was checked. _Pending hosted migration._
+- **Email/notification copy — centralized.** All subjects + bodies now live in
+  `lib/notify/copy.ts` (one source of truth for the senders, the spoof tool, and
+  the `/test/emails` preview page). The voice & tone pass edits that one file.
 - **Richer spoof tool.** `/test` injects sample notifications today. A fuller
   harness could inject/shift/cancel a *test booking* and run the real sync diff
   end to end against a fixture feed.

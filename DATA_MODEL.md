@@ -30,9 +30,12 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
   are not a table** — they're `notifications` rows with `type='cleaner_note'`.
 - **Merged to `main` (Phases 5–6), pending hosted migration:** `payments` +
   `cleaner_rates` (`…060000`); `linen_sets` (`…070000`).
-- **Not built (deferred to backlog):** `supply_items`, `inventory_flags`,
-  `maintenance_flags`, `requests`, and a dedicated `cleaner_notes` table. The
-  spec still describes these; see `docs/BACKLOG.md` for their status.
+- **On `supplies-and-copy` branch, pending hosted migration:** `supply_notes`
+  (running-low flags, spec 5.7–5.8) `…20260628000000`;
+  `turnover_checklist_completions` (persisted closeout ticks) `…20260628010000`.
+- **Not built (deferred to backlog):** `inventory_flags`/`maintenance_flags` as
+  separate tables (folded into `supply_notes`), `requests`, and a dedicated
+  `cleaner_notes` table. The spec still describes these; see `docs/BACKLOG.md`.
 
 ## Tables (as built)
 
@@ -67,6 +70,14 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
 - **guest_feedback** _(P4)_ — cleaner→admin about the guest. `turnover_id`,
   `cleanliness` (1–5), `note`, `created_by`. **Note:** the spec's `damages` /
   `missing_items` columns were not built.
+- **supply_notes** _(branch)_ — "running low" flags (spec 5.7–5.8). `turnover_id`
+  (nullable — admin can file a standalone note), `author_id`, `body`, `resolved`
+  + `resolved_at`/`resolved_by`. Admin reads all + resolves; the assigned cleaner
+  files/reads on their own turnover. Maintenance flags (5.8) fold in as just
+  another note. Surfaced per-turnover and on the admin `/supplies` board.
+- **turnover_checklist_completions** _(branch)_ — persisted closeout ticks. PK
+  `(turnover_id, item_id)` + `checked_by`/`checked_at`; unticking deletes the row.
+  Admin + the assigned cleaner read/write their turnover's ticks.
 - **payments** _(P6, phase-5-6)_ — one per turnover (`unique`). `cleaner_id`,
   `amount`, `paid_at`. Admin writes; admin + owning cleaner read (private amounts).
 - **cleaner_rates** _(P6, phase-5-6)_ — `cleaner_id` (PK), `default_rate`. Its
@@ -96,6 +107,9 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
 | guest_feedback                | create / read                  | Y     | own               |
 | checklist_items / inventory   | read                           | Y     | Y                 |
 | checklist_items / inventory   | create / edit / delete         | Y     |                   |
+| checklist_completions         | read / tick                    | Y     | own (if assigned) |
+| supply_notes                  | read / add                     | Y     | own (if assigned) |
+| supply_notes                  | resolve / delete               | Y     |                   |
 | payments                      | read                           | Y     | own               |
 | payments                      | write (mark paid / amount)     | Y     |                   |
 | cleaner_rates                 | read                           | Y     | own               |
@@ -107,8 +121,10 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
 
 Cleaner notes (admin→cleaner) ride the `notifications` table (`type='cleaner_note'`),
 so they obey the notifications policy: the recipient cleaner reads their own;
-the admin authors via the service role. Deferred tables (`supply_items`,
-`inventory_flags`, `maintenance_flags`, `requests`, a `cleaner_notes` table)
+the admin authors via the service role. `supply_notes` and
+`turnover_checklist_completions` writes likewise go through the service role after
+the server action gates (admin or assigned cleaner); their RLS policies are the
+backstop. Still-deferred tables (`requests`, a dedicated `cleaner_notes` table)
 carry the spec's intended policies in Section 4.2 when built.
 
 ### Phase 0 RLS notes (profiles)

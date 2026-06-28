@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
 import { TestTools } from "@/components/test-tools";
@@ -42,6 +44,12 @@ export default async function TestPage() {
           <p className="text-body text-muted-foreground">
             Exercise notifications without touching the real Airbnb feed.
           </p>
+          <Link
+            href="/test/emails"
+            className="inline-flex items-center gap-1 text-caption font-semibold text-muted-foreground hover:text-foreground"
+          >
+            See all email &amp; notification copy <ArrowRight className="size-4" />
+          </Link>
         </div>
         <TestTools recipients={recipients} cleaners={cleaners} />
       </main>

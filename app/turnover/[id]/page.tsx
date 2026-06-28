@@ -1,12 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Check, Star } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
 import { CloseoutChecklist } from "@/components/closeout-checklist";
+import { SupplyNotes, type SupplyNote } from "@/components/supply-notes";
 import { DeleteTurnoverButton } from "@/components/delete-turnover-button";
 import { CleanerNoteForm } from "@/components/cleaner-note-form";
 import { PaymentControls } from "@/components/payment-controls";
@@ -22,21 +23,47 @@ export const metadata = { title: "Turnover — 357 Oasis Turnovers" };
 
 type Item = { id: string; name: string; description: string; helper: string | null };
 
-function ItemList({ items }: { items: Item[] }) {
+function ItemList({
+  items,
+  checked,
+}: {
+  items: Item[];
+  checked?: Record<string, boolean>;
+}) {
   if (items.length === 0) {
     return <p className="text-caption text-muted-foreground">Nothing set up yet.</p>;
   }
   return (
     <div className="flex flex-col gap-3">
-      {items.map((it) => (
-        <div key={it.id} className="flex flex-col gap-1">
-          <span className="text-body font-semibold text-foreground">{it.name}</span>
-          <span className="text-caption text-muted-foreground">{it.description}</span>
-          {it.helper && (
-            <span className="text-caption text-muted-foreground italic">{it.helper}</span>
-          )}
-        </div>
-      ))}
+      {items.map((it) => {
+        const done = !!checked?.[it.id];
+        return (
+          <div key={it.id} className="flex items-start gap-2">
+            {checked && (
+              <Check
+                className={cn(
+                  "mt-1 size-4 shrink-0",
+                  done ? "text-success" : "text-muted-foreground/30",
+                )}
+              />
+            )}
+            <div className="flex flex-col gap-1">
+              <span
+                className={cn(
+                  "text-body font-semibold",
+                  done ? "text-muted-foreground line-through" : "text-foreground",
+                )}
+              >
+                {it.name}
+              </span>
+              <span className="text-caption text-muted-foreground">{it.description}</span>
+              {it.helper && (
+                <span className="text-caption text-muted-foreground italic">{it.helper}</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -79,37 +106,76 @@ export default async function TurnoverDetailPage({
   const canComplete = (isAdmin || isAssigned) && status === "scheduled";
   const canSeeNotes = isAdmin || isAssigned;
 
-  const [{ data: checklist }, { data: inventory }, { data: feedback }, { data: payment }, { data: cleanerRows }] =
-    await Promise.all([
-      supabase
-        .from("checklist_items")
-        .select("id, name, description, helper")
-        .eq("active", true)
-        .order("position", { ascending: true }),
-      supabase
-        .from("inventory_items")
-        .select("id, name, description, helper")
-        .eq("active", true)
-        .order("position", { ascending: true }),
-      supabase
-        .from("guest_feedback")
-        .select("cleanliness, note, created_at")
-        .eq("turnover_id", id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("payments")
-        .select("amount, paid_at")
-        .eq("turnover_id", id)
-        .maybeSingle(),
-      isAdmin
-        ? supabase
-            .from("profiles")
-            .select("id, display_name, color")
-            .eq("active", true)
-            .eq("role", "cleaner")
-            .order("display_name", { ascending: true })
-        : Promise.resolve({ data: [] as { id: string; display_name: string; color: string | null }[] }),
-    ]);
+  const [
+    { data: checklist },
+    { data: inventory },
+    { data: feedback },
+    { data: payment },
+    { data: cleanerRows },
+    { data: completions },
+    { data: supplyRows },
+  ] = await Promise.all([
+    supabase
+      .from("checklist_items")
+      .select("id, name, description, helper")
+      .eq("active", true)
+      .order("position", { ascending: true }),
+    supabase
+      .from("inventory_items")
+      .select("id, name, description, helper")
+      .eq("active", true)
+      .order("position", { ascending: true }),
+    supabase
+      .from("guest_feedback")
+      .select("cleanliness, note, created_at")
+      .eq("turnover_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("payments")
+      .select("amount, paid_at")
+      .eq("turnover_id", id)
+      .maybeSingle(),
+    isAdmin
+      ? supabase
+          .from("profiles")
+          .select("id, display_name, color")
+          .eq("active", true)
+          .eq("role", "cleaner")
+          .order("display_name", { ascending: true })
+      : Promise.resolve({ data: [] as { id: string; display_name: string; color: string | null }[] }),
+    // Persisted closeout ticks + supply flags. Defensive: empty if not yet migrated.
+    supabase
+      .from("turnover_checklist_completions")
+      .select("item_id")
+      .eq("turnover_id", id),
+    supabase
+      .from("supply_notes")
+      .select("id, body, created_at, resolved, author_id")
+      .eq("turnover_id", id)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const checkedItems: Record<string, boolean> = Object.fromEntries(
+    (completions ?? []).map((c) => [c.item_id as string, true]),
+  );
+
+  // Resolve supply-note author names (cleaner or admin) in one lookup.
+  const supplyAuthorIds = [
+    ...new Set((supplyRows ?? []).map((n) => n.author_id).filter(Boolean)),
+  ] as string[];
+  const { data: supplyAuthors } = supplyAuthorIds.length
+    ? await supabase.from("profiles").select("id, display_name").in("id", supplyAuthorIds)
+    : { data: [] as { id: string; display_name: string }[] };
+  const supplyNameById = new Map(
+    (supplyAuthors ?? []).map((a) => [a.id, a.display_name as string]),
+  );
+  const supplyNotes: SupplyNote[] = (supplyRows ?? []).map((n) => ({
+    id: n.id as string,
+    body: n.body as string,
+    authorName: n.author_id ? (supplyNameById.get(n.author_id as string) ?? null) : null,
+    createdAt: n.created_at as string,
+    resolved: !!n.resolved,
+  }));
 
   // Admin→cleaner notes ride the notifications table; the recipient is the
   // assigned cleaner, so we read them with the service role (gated above).
@@ -197,9 +263,10 @@ export default async function TurnoverDetailPage({
             <CloseoutChecklist
               turnoverId={turnover.id as string}
               items={(checklist ?? []) as Item[]}
+              initialChecked={checkedItems}
             />
           ) : (
-            <ItemList items={(checklist ?? []) as Item[]} />
+            <ItemList items={(checklist ?? []) as Item[]} checked={checkedItems} />
           )}
         </Card>
 
@@ -264,11 +331,26 @@ export default async function TurnoverDetailPage({
         )}
 
         <Card className="flex flex-col gap-4 p-6">
-          <h2 className="text-heading">Inventory refills</h2>
-          <p className="text-caption text-muted-foreground">
-            Flag anything low to Daniel.
-          </p>
-          <ItemList items={(inventory ?? []) as Item[]} />
+          <div className="flex flex-col gap-1">
+            <h2 className="text-heading">Supplies</h2>
+            <p className="text-caption text-muted-foreground">
+              Flag anything running low — it goes on Daniel&apos;s supply list.
+            </p>
+          </div>
+          <SupplyNotes
+            turnoverId={turnover.id as string}
+            notes={supplyNotes}
+            canAdd={isAdmin || isAssigned}
+            isAdmin={isAdmin}
+          />
+          {(inventory ?? []).length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-border pt-4">
+              <h3 className="text-caption font-semibold text-muted-foreground">
+                What we stock
+              </h3>
+              <ItemList items={(inventory ?? []) as Item[]} />
+            </div>
+          )}
         </Card>
 
         <Card className="flex flex-col gap-4 p-6">

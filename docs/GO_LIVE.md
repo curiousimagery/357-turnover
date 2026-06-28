@@ -7,19 +7,23 @@ automatically.** Do the steps in order; ping me on any one.
 
 When a step is done, check it off here so this file always shows what's left.
 
-## 1. Ship Phases 5–6 (linens + payments + profile menu)
+## 1. Apply pending migrations, then ship
 
-Merged into `main` and verified (lint + tests + build green). Two steps left —
-**apply the migrations before you push**, or the deployed `/linens` and payment
-pages will query tables that don't exist yet.
+Verified (lint + tests + build green). **Apply the migrations before you push**,
+or the deployed pages will query tables that don't exist yet. (The new pages read
+defensively — they show empty instead of crashing if a table is missing — but the
+features won't actually work until the migration is applied.)
 
-- [ ] **Apply the two migrations** in the hosted SQL Editor (paste each, Run —
-      both additive/safe):
-  - `supabase/migrations/20260624060000_payments.sql`
-  - `supabase/migrations/20260624070000_linens.sql`
-- [ ] **Push to deploy** (Vercel auto-deploys `main`):
+- [ ] **Apply the migrations** in the hosted SQL Editor (paste each, Run — all
+      additive/safe). _If you're unsure whether 5–6 already ran, re-running is
+      safe: every statement is `create … if not exists` / `drop policy if exists`._
+  - Phases 5–6: `supabase/migrations/20260624060000_payments.sql`
+  - Phases 5–6: `supabase/migrations/20260624070000_linens.sql`
+  - Supplies: `supabase/migrations/20260628000000_supply_notes.sql`
+  - Closeout ticks: `supabase/migrations/20260628010000_checklist_completions.sql`
+- [ ] **Merge `supplies-and-copy` → `main` and push** (Vercel auto-deploys `main`):
   ```bash
-  git push
+  git checkout main && git merge --ff-only supplies-and-copy && git push
   ```
 
 ## 2. Confirm Vercel env vars
@@ -67,6 +71,10 @@ invites + email change.)
    and `/cleaners/[id]`.
 5. **Phase 5–6:** `/linens` (move a set, check the low-stock banner) and a
    turnover's payment card (set amount → Mark paid → cleaner sees only their own).
+6. **Supplies + closeout ticks:** on a claimed turnover, tick a checklist item →
+   reload → it stays ticked; Mark complete with "Anything running low?" filled →
+   confirm it shows in the turnover's Supplies card **and** on `/supplies`, then
+   "Mark restocked." Also check `/test/emails` renders all the copy.
 
 ---
 

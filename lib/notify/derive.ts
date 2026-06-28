@@ -15,7 +15,7 @@
  * Reminders and payment notifications are time-/action-driven (not sync-diff
  * driven) and are produced elsewhere.
  */
-import { formatNiceDate } from "../dates";
+import { notificationCopy } from "./copy";
 
 export type TurnoverChangeKind =
   | "new"
@@ -58,16 +58,16 @@ export function deriveNotifications(
   };
 
   for (const c of changes) {
-    const d = formatNiceDate(c.date);
     switch (c.kind) {
       case "new": {
+        const copy = notificationCopy.new(c.date);
         for (const id of activeCleanerIds) {
           push({
             recipientId: id,
             type: "new",
             turnoverId: c.turnoverId,
-            title: "New turnover available",
-            body: `A turnover on ${d} is open to claim.`,
+            title: copy.title,
+            body: copy.body,
             dedupeKey: `new:${c.turnoverId}:${id}`,
           });
         }
@@ -76,12 +76,13 @@ export function deriveNotifications(
 
       case "cancelled": {
         if (c.assigneeId) {
+          const copy = notificationCopy.cancelled(c.date);
           push({
             recipientId: c.assigneeId,
             type: "cancelled",
             turnoverId: c.turnoverId,
-            title: "Turnover cancelled",
-            body: `Your turnover on ${d} was cancelled.`,
+            title: copy.title,
+            body: copy.body,
             dedupeKey: `cancelled:${c.turnoverId}:${c.assigneeId}`,
           });
         }
@@ -89,25 +90,27 @@ export function deriveNotifications(
       }
 
       case "date_changed": {
-        const prevD = c.previousDate ? formatNiceDate(c.previousDate) : "a previous date";
         if (c.assigneeId) {
+          const copy = notificationCopy.dateChanged(c.previousDate, c.date);
           push({
             recipientId: c.assigneeId,
             type: "date_changed",
             turnoverId: c.turnoverId,
-            title: "Turnover date changed",
-            body: `Your turnover moved from ${prevD} to ${d}. It's open to claim again.`,
+            title: copy.title,
+            body: copy.body,
             dedupeKey: `date_changed:${c.turnoverId}:${c.assigneeId}:${c.date}`,
           });
         }
+        // The cleaners who didn't hold it just see a fresh open date.
+        const open = notificationCopy.new(c.date);
         for (const id of activeCleanerIds) {
           if (id === c.assigneeId) continue; // already told above
           push({
             recipientId: id,
             type: "date_changed",
             turnoverId: c.turnoverId,
-            title: "New turnover available",
-            body: `A turnover on ${d} is open to claim.`,
+            title: open.title,
+            body: open.body,
             dedupeKey: `date_changed:${c.turnoverId}:${id}:${c.date}`,
           });
         }
@@ -116,12 +119,13 @@ export function deriveNotifications(
 
       case "became_same_day": {
         if (c.assigneeId) {
+          const copy = notificationCopy.becameSameDay(c.date);
           push({
             recipientId: c.assigneeId,
             type: "became_same_day",
             turnoverId: c.turnoverId,
-            title: "Heads up: now a same-day turnover",
-            body: `Your turnover on ${d} is now same-day — a guest checks in that day, so timing is tight.`,
+            title: copy.title,
+            body: copy.body,
             dedupeKey: `became_same_day:${c.turnoverId}:${c.assigneeId}`,
           });
         }

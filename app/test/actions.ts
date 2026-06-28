@@ -6,7 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPendingNotifications, senderConfigFromEnv } from "@/lib/notify/send";
 import { deriveNotifications, type TurnoverChange } from "@/lib/notify/derive";
-import { todayInPropertyTz, formatNiceDate } from "@/lib/dates";
+import { notificationCopy, type NotificationCopy } from "@/lib/notify/copy";
+import { addDaysIso } from "@/lib/notify/reminders";
+import { todayInPropertyTz } from "@/lib/dates";
 
 /** Marker stored in a spoof turnover's notes so the tool can find + clean them
  *  up. Distinctive enough that a real manual turnover won't collide. */
@@ -39,30 +41,37 @@ async function requireAdmin() {
   return { ok: true as const, supabase };
 }
 
-function sample(type: string, date: string): { title: string; body: string } {
+/** Build a representative title/body for any type from the shared copy catalog,
+ *  supplying sample values for the per-type extras. Keeps the spoof tool's copy
+ *  identical to what the real senders produce. */
+function sample(type: string, dateIso: string): NotificationCopy {
   switch (type) {
     case "new":
-      return { title: "New turnover available", body: `A turnover on ${date} is open to claim.` };
+      return notificationCopy.new(dateIso);
     case "available":
-      return { title: "A turnover is open", body: `The turnover on ${date} is open to claim.` };
+      return notificationCopy.available(dateIso);
     case "assigned":
-      return { title: "You've been assigned a turnover", body: `You're now on for the turnover on ${date}.` };
+      return notificationCopy.assigned(dateIso);
     case "unassigned":
-      return { title: "You've been taken off a turnover", body: `You're no longer assigned the turnover on ${date}.` };
+      return notificationCopy.unassigned(dateIso);
     case "date_changed":
-      return { title: "Turnover date changed", body: `Your turnover moved to ${date}. It's open to claim again.` };
+      return notificationCopy.dateChanged(addDaysIso(dateIso, -7), dateIso);
     case "cancelled":
-      return { title: "Turnover cancelled", body: `Your turnover on ${date} was cancelled.` };
+      return notificationCopy.cancelled(dateIso);
     case "became_same_day":
-      return { title: "Heads up: now a same-day turnover", body: `Your turnover on ${date} is now same-day.` };
+      return notificationCopy.becameSameDay(dateIso);
     case "reminder":
-      return { title: "Reminder: turnover coming up", body: `You're on for ${date}.` };
+      return notificationCopy.reminder(dateIso, false);
+    case "payment_sent":
+      return notificationCopy.paymentSent(dateIso, 85);
     case "cleaner_note":
-      return { title: "Follow-up note from Daniel", body: `A test follow-up about the turnover on ${date}.` };
+      return notificationCopy.cleanerNote(dateIso, "A test follow-up note about this turnover.");
     case "released":
-      return { title: "A turnover needs coverage", body: `A cleaner released the turnover on ${date}.` };
+      return notificationCopy.released(dateIso, "A cleaner");
+    case "completed":
+      return notificationCopy.completed(dateIso, "A cleaner");
     default:
-      return { title: "Test notification", body: `A test for ${date}.` };
+      return { title: "Test notification", body: "A test notification." };
   }
 }
 
@@ -83,11 +92,11 @@ export async function sendTestNotification(input: {
     .order("turnover_date", { ascending: true })
     .limit(1)
     .maybeSingle();
-  const date = t?.turnover_date
-    ? formatNiceDate(t.turnover_date as string)
-    : "an upcoming date";
+  // sample() formats the date itself, so pass a raw ISO date (fall back to a
+  // plausible upcoming one when there's no real turnover to link to).
+  const dateIso = (t?.turnover_date as string | undefined) ?? futureDate(7);
 
-  const s = sample(input.type, date);
+  const s = sample(input.type, dateIso);
   const admin = createAdminClient();
   const { error } = await admin.from("notifications").insert({
     recipient_id: input.recipientId,

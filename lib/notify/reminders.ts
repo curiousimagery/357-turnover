@@ -7,7 +7,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { todayInPropertyTz, formatNiceDate } from "../dates";
+import { todayInPropertyTz } from "../dates";
+import { notificationCopy } from "./copy";
 
 export const REMINDER_DAYS = 2;
 
@@ -28,15 +29,16 @@ export type PlannedReminder = {
 
 /** Pure: one reminder per claimed turnover, deduped per (turnover, cleaner). */
 export function planReminders(claimed: ClaimedTurnover[]): PlannedReminder[] {
-  return claimed.map((c) => ({
-    recipientId: c.cleanerId,
-    turnoverId: c.turnoverId,
-    title: "Reminder: turnover coming up",
-    body: c.isSameDay
-      ? `You're on for ${formatNiceDate(c.date)} — it's a same-day turnover, so timing is tight.`
-      : `You're on for ${formatNiceDate(c.date)}.`,
-    dedupeKey: `reminder:${c.turnoverId}:${c.cleanerId}`,
-  }));
+  return claimed.map((c) => {
+    const copy = notificationCopy.reminder(c.date, c.isSameDay);
+    return {
+      recipientId: c.cleanerId,
+      turnoverId: c.turnoverId,
+      title: copy.title,
+      body: copy.body,
+      dedupeKey: `reminder:${c.turnoverId}:${c.cleanerId}`,
+    };
+  });
 }
 
 export function addDaysIso(iso: string, days: number): string {

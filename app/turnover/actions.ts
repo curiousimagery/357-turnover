@@ -232,6 +232,58 @@ export async function savePrepNotes(input: {
 }
 
 /**
+ * Tick / untick a closeout checklist item for a turnover. Persists per-item so
+ * the ticks survive a reload and the admin can see what was checked. Gated to the
+ * assigned cleaner or an admin; written via the admin client.
+ */
+export async function setChecklistItem(input: {
+  turnoverId: string;
+  itemId: string;
+  checked: boolean;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const { isAdmin, isAssigned } = await adminOrAssigned(
+    supabase,
+    user.id,
+    input.turnoverId,
+  );
+  if (!isAdmin && !isAssigned) {
+    return { ok: false, error: "Only the assigned cleaner or an admin can do this." };
+  }
+
+  const admin = createAdminClient();
+  if (input.checked) {
+    const { error } = await admin
+      .from("turnover_checklist_completions")
+      .upsert(
+        {
+          turnover_id: input.turnoverId,
+          item_id: input.itemId,
+          checked_by: user.id,
+          checked_at: new Date().toISOString(),
+        },
+        { onConflict: "turnover_id,item_id" },
+      );
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await admin
+      .from("turnover_checklist_completions")
+      .delete()
+      .eq("turnover_id", input.turnoverId)
+      .eq("item_id", input.itemId);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath(`/turnover/${input.turnoverId}`);
+  return { ok: true };
+}
+
+/**
  * File guest feedback (cleanliness + note) independent of marking complete, so
  * it can be added or added-to any time — including after a turnover is done.
  * Gated to the assigned cleaner or admin.
@@ -285,6 +337,8 @@ export async function completeTurnover(input: {
   turnoverId: string;
   cleanliness: number | null;
   note: string;
+  /** Optional "anything running low?" flag filed as a supply note on complete. */
+  supplyNote?: string;
 }): Promise<ActionResult> {
   const supabase = await createClient();
   const {
@@ -340,6 +394,20 @@ export async function completeTurnover(input: {
       note: input.note.trim() || null,
       created_by: user.id,
     });
+  }
+
+  // A "running low" flag rides along as a supply note. Defensive: a failure here
+  // must never block the completion itself.
+  if (input.supplyNote?.trim()) {
+    try {
+      await admin.from("supply_notes").insert({
+        turnover_id: input.turnoverId,
+        author_id: user.id,
+        body: input.supplyNote.trim(),
+      });
+    } catch (e) {
+      console.error("supply note on complete failed:", e);
+    }
   }
 
   try {

@@ -18,33 +18,45 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { completeTurnover } from "@/app/turnover/actions";
+import { completeTurnover, setChecklistItem } from "@/app/turnover/actions";
 
 type Item = { id: string; name: string; description: string; helper: string | null };
 
 /**
  * Interactive "before you leave" checklist: tick items off, then mark complete
- * (with optional guest feedback). Ticks are in-session — a forgiving nudge, not
- * a hard gate; completing with items left prompts a gentle confirm.
+ * (with optional guest feedback + a "running low" flag). Ticks persist per
+ * turnover (so they survive a reload and the admin can see them); completing with
+ * items left prompts a gentle confirm — a forgiving nudge, not a hard gate.
  */
 export function CloseoutChecklist({
   turnoverId,
   items,
+  initialChecked = {},
 }: {
   turnoverId: string;
   items: Item[];
+  initialChecked?: Record<string, boolean>;
 }) {
   const router = useRouter();
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [checked, setChecked] = useState<Record<string, boolean>>(initialChecked);
   const [open, setOpen] = useState(false);
   const [cleanliness, setCleanliness] = useState(0);
   const [note, setNote] = useState("");
+  const [supplyNote, setSupplyNote] = useState("");
   const [pending, startTransition] = useTransition();
 
   const remaining = items.filter((i) => !checked[i.id]).length;
 
   function toggle(id: string, v: boolean) {
+    // Optimistic: flip immediately, persist, revert if the write fails.
     setChecked((c) => ({ ...c, [id]: v }));
+    startTransition(async () => {
+      const result = await setChecklistItem({ turnoverId, itemId: id, checked: v });
+      if (!result.ok) {
+        setChecked((c) => ({ ...c, [id]: !v }));
+        toast.error(result.error);
+      }
+    });
   }
 
   function openComplete() {
@@ -63,6 +75,7 @@ export function CloseoutChecklist({
         turnoverId,
         cleanliness: cleanliness || null,
         note,
+        supplyNote,
       });
       if (result.ok) {
         toast.success("Turnover marked complete");
@@ -129,8 +142,8 @@ export function CloseoutChecklist({
           <DialogHeader>
             <DialogTitle className="text-heading">Mark complete</DialogTitle>
             <DialogDescription className="text-caption">
-              A little guest feedback helps Daniel rate the guest. Both fields are
-              optional.
+              A little guest feedback helps Daniel rate the guest. Everything here
+              is optional.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-6">
@@ -168,6 +181,19 @@ export function CloseoutChecklist({
                 className="text-body"
                 placeholder="Anything Daniel should know about how the guest left it?"
               />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="supply-note">Anything running low?</Label>
+              <Textarea
+                id="supply-note"
+                value={supplyNote}
+                onChange={(e) => setSupplyNote(e.target.value)}
+                className="text-body"
+                placeholder="e.g. down to one roll of paper towels, almost out of coffee"
+              />
+              <span className="text-caption text-muted-foreground">
+                Goes on Daniel&apos;s supply list so it gets restocked.
+              </span>
             </div>
           </div>
           <DialogFooter>
