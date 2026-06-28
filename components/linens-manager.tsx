@@ -17,8 +17,6 @@ export type LinenSet = {
   id: string;
   kind: string;
   label: string;
-  color: string | null;
-  brand: string | null;
   state: string;
   heldById: string | null;
 };
@@ -52,8 +50,6 @@ export function LinensManager({
   const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState("sheet_set");
   const [label, setLabel] = useState("");
-  const [color, setColor] = useState("");
-  const [brand, setBrand] = useState("");
 
   function run(fn: () => Promise<ActionResult>, ok: string) {
     startTransition(async () => {
@@ -66,28 +62,31 @@ export function LinensManager({
   function add(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await addLinenSet({ kind, label, color, brand });
+      const result = await addLinenSet({ kind, label });
       if (result.ok) {
         toast.success("Set added");
         setLabel("");
-        setColor("");
-        setBrand("");
       } else {
         toast.error(result.error);
       }
     });
   }
 
-  const warnings = (["sheet_set", "duvet_set"] as const)
-    .map((k) => {
-      const backups = sets.filter(
-        (s) => s.kind === k && s.state === "clean_backup",
-      ).length;
-      return backups < LOW_STOCK
-        ? `Only ${backups} clean ${KIND_LABEL[k].toLowerCase()} backup${backups === 1 ? "" : "s"} left.`
-        : null;
-    })
-    .filter((w): w is string => !!w);
+  // Low-stock is per interchangeable group (kind + label): "White IKEA queen" is
+  // counted separately from "Sand percale Quince" — they don't substitute.
+  const groups = new Map<string, { kind: string; label: string; backups: number }>();
+  for (const s of sets) {
+    const key = `${s.kind}|${s.label}`;
+    const g = groups.get(key) ?? { kind: s.kind, label: s.label, backups: 0 };
+    if (s.state === "clean_backup") g.backups += 1;
+    groups.set(key, g);
+  }
+  const warnings = [...groups.values()]
+    .filter((g) => g.backups < LOW_STOCK)
+    .map(
+      (g) =>
+        `Only ${g.backups} clean ${g.label} ${KIND_LABEL[g.kind].toLowerCase()} backup${g.backups === 1 ? "" : "s"} left.`,
+    );
 
   return (
     <div className="flex flex-col gap-8">
@@ -117,20 +116,16 @@ export function LinensManager({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               className="h-14 text-body"
-              placeholder="Label (e.g. White #1)"
+              placeholder={
+                kind === "duvet_set"
+                  ? "Label (e.g. Terracotta linen)"
+                  : "Label (e.g. White IKEA queen)"
+              }
             />
-            <Input
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="h-14 text-body"
-              placeholder="Color (optional)"
-            />
-            <Input
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="h-14 text-body"
-              placeholder="Brand (optional)"
-            />
+            <p className="text-caption text-muted-foreground">
+              Name the look so matching sets share a label — add one row per
+              physical set (e.g. four “White IKEA queen”).
+            </p>
             <div>
               <Button
                 type="submit"
@@ -163,8 +158,6 @@ export function LinensManager({
                     </span>
                     <span className="text-caption text-muted-foreground">
                       {KIND_LABEL[s.kind]}
-                      {s.color ? ` · ${s.color}` : ""}
-                      {s.brand ? ` · ${s.brand}` : ""}
                     </span>
                   </div>
                   {isAdmin && (

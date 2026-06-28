@@ -23,7 +23,7 @@ export default async function LinensPage() {
   const [{ data: rows }, { data: cleanerRows }] = await Promise.all([
     supabase
       .from("linen_sets")
-      .select("id, kind, label, color, brand, state, held_by")
+      .select("id, kind, label, state, held_by")
       .order("kind", { ascending: true })
       .order("label", { ascending: true }),
     supabase
@@ -37,8 +37,6 @@ export default async function LinensPage() {
     id: s.id as string,
     kind: s.kind as string,
     label: s.label as string,
-    color: (s.color as string | null) ?? null,
-    brand: (s.brand as string | null) ?? null,
     state: s.state as string,
     heldById: (s.held_by as string | null) ?? null,
   }));

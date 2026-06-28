@@ -28,20 +28,13 @@ async function requireAdmin() {
 export async function addLinenSet(input: {
   kind: string;
   label: string;
-  color: string;
-  brand: string;
 }): Promise<ActionResult> {
   const gate = await requireAdmin();
   if (!gate.ok) return gate;
   const kind = input.kind === "duvet_set" ? "duvet_set" : "sheet_set";
   const label = input.label.trim();
   if (!label) return { ok: false, error: "Give the set a label." };
-  const { error } = await gate.supabase.from("linen_sets").insert({
-    kind,
-    label,
-    color: input.color.trim() || null,
-    brand: input.brand.trim() || null,
-  });
+  const { error } = await gate.supabase.from("linen_sets").insert({ kind, label });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/linens");
   return { ok: true };

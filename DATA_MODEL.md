@@ -82,10 +82,12 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
   `amount`, `paid_at`. Admin writes; admin + owning cleaner read (private amounts).
 - **cleaner_rates** _(P6, phase-5-6)_ — `cleaner_id` (PK), `default_rate`. Its
   own table (not `profiles`, which is world-readable) so rates stay private.
-- **linen_sets** _(P5, phase-5-6)_ — individual sheet/duvet sets. `kind`
-  (`sheet_set`|`duvet_set`), `label` (not null), `color`, `brand`, `state`
-  (`on_beds`|`with_cleaner`|`clean_backup`|`in_wash`), `held_by`, `notes`.
-  Everyone reads + moves state/holder; only admins add/remove.
+- **linen_sets** _(P5, phase-5-6)_ — individual sheet/duvet sets, described by
+  just `kind` (`sheet_set`|`duvet_set`) + `label` (not null) — the label is the
+  interchangeable group (e.g. four "White IKEA queen" sets), with color/brand
+  baked into it. `state` (`on_beds`|`with_cleaner`|`clean_backup`|`in_wash`),
+  `held_by`. Everyone reads + moves state/holder; only admins add/remove.
+  (`color`/`brand`/`notes` columns dropped — `…20260628020000`.)
 - **sync_runs** / **sync_state** _(P1)_ — sync observability + heartbeat
   (`last_synced_at`, `last_success_at`), backing `/api/health`.
 
