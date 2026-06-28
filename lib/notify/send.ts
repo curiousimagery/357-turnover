@@ -52,11 +52,16 @@ export async function sendPendingNotifications(
     (muted ?? []).map((m) => `${m.user_id}|${m.type}`),
   );
 
-  // Resolve each recipient's current email once.
+  // Resolve each recipient's current email once. A lookup failure must not crash
+  // the batch — treat it as "no email" (that row is marked failed, not thrown).
   const emailById = new Map<string, string | null>();
   for (const id of userIds) {
-    const { data } = await supabase.auth.admin.getUserById(id);
-    emailById.set(id, data.user?.email ?? null);
+    try {
+      const { data } = await supabase.auth.admin.getUserById(id);
+      emailById.set(id, data.user?.email ?? null);
+    } catch {
+      emailById.set(id, null);
+    }
   }
 
   let sent = 0;

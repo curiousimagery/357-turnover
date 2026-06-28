@@ -110,8 +110,17 @@ export async function drainEmailsNow(): Promise<TestResult> {
   if (!config) {
     return { ok: false, error: "Resend isn't configured (set RESEND_API_KEY)." };
   }
-  const result = await sendPendingNotifications(createAdminClient(), config);
-  return { ok: true, sent: result.sent, failed: result.failed };
+  try {
+    // Smaller batch on the manual button so a backlog can't time the function
+    // out; it's idempotent, so re-click to send more. The hourly cron drains too.
+    const result = await sendPendingNotifications(createAdminClient(), config, 25);
+    return { ok: true, sent: result.sent, failed: result.failed };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Email send failed.",
+    };
+  }
 }
 
 /** A YYYY-MM-DD date `daysAhead` from today in property-local time. */
