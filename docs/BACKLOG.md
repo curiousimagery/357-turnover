@@ -92,6 +92,32 @@ for historic turnovers. Mostly relaxing the `.gte` filter + the picker UI.
 - Friendlier dates in messages ("Jul 10, 2026"), clearer follow-up-note +
   reminder labels, and manual turnovers now notify cleaners.
 
+## Near-term feature: supply / inventory notes (spec 5.7–5.8)
+
+Cleaners can read the inventory **reference** sheet at closeout but have no way to
+flag "we're low on coffee / TP," and there's no single place for Daniel to see
+those flags or add his own (e.g. "guest said the first-aid kit was out of
+band-aids"). Wanted now. Recommended design:
+
+- **Storage:** a small `supply_notes` table — `id, turnover_id, author_id, body,
+  resolved bool default false, created_at`. **Needs a migration.** Attached to a
+  turnover so each note carries context (which visit); multiple notes per
+  turnover, from cleaner or admin.
+- **RLS:** admin reads/writes all and resolves; the assigned cleaner can add +
+  read on their own turnover.
+- **Closeout prompt:** in the "Before you leave" flow, an optional "Anything
+  running low?" field → files a supply note on complete.
+- **Per-turnover:** a "Supplies / running low" section on `/turnover/[id]` —
+  notes + an add form (admin on any turnover; assigned cleaner on theirs).
+- **Unified view:** a `/supplies` page (admin) listing all **unresolved** notes
+  across turnovers (date + who flagged) with "mark restocked" (resolve) + an admin
+  add — the shopping list for a resupply run.
+- Folds in maintenance flags (5.8) as just another note (add a `kind` column
+  later if we want to separate supplies vs. durable-goods).
+
+This is the **last un-built feature from the original plan** (Phase 5's inventory
+piece) — everything else in the spec is shipped.
+
 ## Deferred spec features (in the spec, intentionally not built)
 
 Kept as backlog, not cut — revisit once we know how granular things really need
@@ -100,12 +126,8 @@ to be (the guiding worry is not adding complexity prematurely).
 - **Coordination requests** (spec 5.10) — structured luggage-drop / early-check-in
   request + yes/no/conditional response. Likely unnecessary if generic turnover
   notes (above) prove enough.
-- **Inventory "running low" flags** (spec 5.7) — per-turnover low-stock flags
-  against a supply catalog (`supply_items` + `inventory_flags`). If ever built,
-  probably just a binary low/out, not counts. _(The `/checklist` editor is an
-  inventory **reference** sheet — not this flagging workflow.)_
-- **Maintenance / durable-goods flags** (spec 5.8) — flag a stained towel / thin
-  sheet for replacement.
+- **Inventory "running low" flags + maintenance flags** (spec 5.7–5.8) — promoted
+  to near-term as **supply / inventory notes** (above).
 - **Guest feedback depth** — the spec's `damages` / `missing_items` fields (not
   built; today it's cleanliness + note).
 - **Durable / two-way cleaner notes** — if the one-way notification model proves

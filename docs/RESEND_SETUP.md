@@ -30,6 +30,17 @@ After adding the Vercel vars, redeploy so the running app picks them up.
   records it shows (SPF/DKIM). Once verified, set `NOTIFY_FROM` to an address on
   that domain and email goes to anyone — including the `+alias` cleaners.
 
+### Current setup — prod is verified; dev uses the sandbox
+
+- **Prod (Vercel):** `NOTIFY_FROM = 357 Oasis Turnovers <noreply@mail.curiousimagery.com>`
+  on the verified `mail.curiousimagery.com` domain → delivers to **anyone**. Test
+  `+alias` cleaner addresses **from prod**.
+- **Dev (`npm run dev`):** `.env.local` has no `NOTIFY_FROM`, so it falls back to
+  the sandbox (`onboarding@resend.dev`), which only delivers to your **own** Resend
+  account email. A send to a `+alias` tester from dev returns "failed 1" — that's
+  **expected, not a bug** (and it's a quiet failure now, never a crash). Add
+  `NOTIFY_FROM` to `.env.local` if you want dev to mirror prod and send for real.
+
 ## 4. Test it
 
 Make a notification exist (add a manual turnover, or let a sync pick up a new

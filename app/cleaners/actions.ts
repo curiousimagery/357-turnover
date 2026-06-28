@@ -135,6 +135,34 @@ export async function deleteCleaner(cleanerId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Admin changes a cleaner's sign-in email. Uses the auth admin API and confirms
+ *  it immediately (no round-trip), since the admin is managing the account. */
+export async function updateCleanerEmail(
+  cleanerId: string,
+  email: string,
+): Promise<ActionResult> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate;
+
+  const clean = email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) {
+    return { ok: false, error: "Enter a valid email." };
+  }
+
+  const { error } = await createAdminClient().auth.admin.updateUserById(cleanerId, {
+    email: clean,
+    email_confirm: true,
+  });
+  if (error) {
+    if (/already.*registered|already been registered|exists/i.test(error.message)) {
+      return { ok: false, error: "Another account already uses that email." };
+    }
+    return { ok: false, error: error.message };
+  }
+  revalidatePath(`/cleaners/${cleanerId}`);
+  return { ok: true };
+}
+
 /** Set a cleaner's default per-turnover rate (prefills payments). */
 export async function setDefaultRate(
   cleanerId: string,

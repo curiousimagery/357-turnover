@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
 import { RateForm } from "@/components/rate-form";
+import { CleanerEmailForm } from "@/components/cleaner-email-form";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils";
@@ -67,9 +68,12 @@ export default async function CleanerHistoryPage({
     return sum;
   }, 0);
 
-  // Notes are notifications addressed to the cleaner — only the recipient can
-  // read them under RLS, so use the admin client here (page is admin-gated).
-  const { data: notes } = await createAdminClient()
+  // Admin-gated page, so use the service role for the cleaner's auth email and
+  // their notes (notifications RLS only lets the recipient read them).
+  const admin = createAdminClient();
+  const { data: authUser } = await admin.auth.admin.getUserById(id);
+  const cleanerEmail = authUser?.user?.email ?? "";
+  const { data: notes } = await admin
     .from("notifications")
     .select("turnover_id, body, created_at")
     .eq("recipient_id", id)
@@ -95,6 +99,11 @@ export default async function CleanerHistoryPage({
           {cleaner.role === "admin" && <StatusBadge tone="outline">Admin</StatusBadge>}
           {!cleaner.active && <StatusBadge tone="neutral">Inactive</StatusBadge>}
         </div>
+
+        <Card className="flex flex-col gap-4 p-6">
+          <h2 className="text-heading">Account</h2>
+          <CleanerEmailForm cleanerId={id} initial={cleanerEmail} />
+        </Card>
 
         <Card className="flex flex-col gap-4 p-6">
           <h2 className="text-heading">Pay</h2>
