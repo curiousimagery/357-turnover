@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SettingsForm } from "@/components/settings-form";
 import { EmailSettings } from "@/components/email-settings";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { type CategoryPrefMap } from "@/components/notification-preferences";
 import {
   Card,
@@ -112,6 +113,18 @@ export default async function SettingsPage() {
               isAdmin={isAdmin}
               canSave={canSave}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-3 pt-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-heading">Appearance</h2>
+              <p className="text-caption text-muted-foreground">
+                Light, dark, or match your device.
+              </p>
+            </div>
+            <ThemeToggle />
           </CardContent>
         </Card>
 
