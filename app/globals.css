@@ -54,14 +54,14 @@
      * Cleaner tag palette — a separate, small, user-chosen set.
      * These never override status tokens. Keep in sync with lib/cleaner-tags.ts.
      */
-    --tag-rose: hsl(347 77% 50%);
-    --tag-amber: hsl(38 92% 50%);
-    --tag-emerald: hsl(158 64% 40%);
-    --tag-sky: hsl(200 90% 42%);
-    --tag-violet: hsl(262 58% 56%);
-    --tag-teal: hsl(173 70% 36%);
-    --tag-slate: hsl(215 25% 40%);
-    --tag-fuchsia: hsl(292 56% 50%);
+    --tag-rose: hsl(339, 61%, 30%);
+    --tag-amber: hsl(45, 75%, 76%);
+    --tag-emerald: hsl(155, 76%, 28%);
+    --tag-sky: hsl(216, 77%, 49%);
+    --tag-violet: hsl(262, 59%, 32%);
+    --tag-teal: hsl(182, 62%, 35%);
+    --tag-slate: hsl(210, 17%, 37%);
+    --tag-fuchsia: hsl(282, 68%, 44%);
   }
 
   .dark {
