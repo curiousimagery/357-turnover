@@ -165,10 +165,45 @@ to be (the guiding worry is not adding complexity prematurely).
 - **Yearly pay totals export.** The per-cleaner this-year total is shown; add a
   CSV/export for 1099 / tax season.
 
+## Open-source prep — genericize property + admin names
+
+Goal: make this shareable as a generic template, and fix the "Daniel" vs "admin"
+inconsistency by using the admin's **own name** (`display_name`) wherever we mean
+the person (not the role) — which also sets up multiple admins. Two themes:
+
+**A. Admin person-name** ("Daniel" → the admin's first name). 9 user-facing spots
+today. Most are easy once context is available; three have wrinkles:
+- *Easy (context exists):* the `cleaner_note` notification **subject**
+  (`lib/notify/copy.ts`) — thread the author's first name from `addCleanerNote`
+  (the author is the current user) through `notifyCleanerNote`. The closeout
+  placeholder + the "ask Daniel to reactivate" error — reword (generic or, where
+  we have it, the admin name).
+- *Wrinkle 1 — static labels:* the notification-pref labels in
+  `lib/notify/types.ts` are module constants with no user context. Either
+  genericize ("Follow-up note from the admin") or inject the admin name in the
+  settings UI.
+- *Wrinkle 2 — per-note author:* the "Follow-up notes from Daniel" heading on
+  `/turnover/[id]` reads `cleaner_note` **notification rows**, which don't store
+  *who* wrote them. True per-admin attribution ("from <name>") needs recording the
+  author (e.g. a `notifications.author_id` column). Without it, go generic or
+  assume the single admin.
+- *Wrinkle 3 — invite email:* "Daniel is inviting you…" is a static Supabase
+  dashboard template (`lib/notify/external-emails.ts` is just the draft). Can't
+  inject the inviter name without custom SMTP templating → keep generic.
+
+**B. Property / brand name** ("357 Oasis Turnovers", "357 26th Ave", "Central
+District"). ~16 files — mostly page `metadata.title`, the header wordmark, and
+email sender/footer/copy. Cleanest: a single `lib/config.ts` (or env) exporting
+`APP_NAME` / `PROPERTY_NAME` / `PROPERTY_ADDRESS`, referenced everywhere; build
+the page titles from it. Mechanical, low risk.
+
+**Effort/risk:** ~half a day for a tidy job; **low risk** (almost all strings; the
+one load-bearing change is the notification-copy signature, which the unit tests
+pin). Optional small migration for `notifications.author_id` if we want true
+multi-admin attribution. Supersedes the "Copy variety" note below.
+
 ## Later / nice-to-have
 
 - **Web push** — a third notification channel (no schema change; after the core
   is proven stable).
 - **Calendar view** — optional secondary toggle; the list stays primary.
-- **Copy variety** — property aliases ("357 Oasis" / "Central District Oasis
-  Airbnb") in body copy while keeping the wordmark consistent.
