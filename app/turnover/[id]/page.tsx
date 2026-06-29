@@ -8,13 +8,13 @@ import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
 import { CloseoutFlow } from "@/components/closeout-flow";
 import { StartTurnoverButton } from "@/components/start-turnover-button";
-import { SupplyNotes, type SupplyNote } from "@/components/supply-notes";
+import { ReopenTurnoverButton } from "@/components/reopen-turnover-button";
+import type { SupplyNote } from "@/components/supply-notes";
 import { DeleteTurnoverButton } from "@/components/delete-turnover-button";
 import { CleanerNoteForm } from "@/components/cleaner-note-form";
 import { PaymentControls } from "@/components/payment-controls";
 import { TurnoverActions } from "@/components/turnover-actions";
 import { PrepNotes } from "@/components/prep-notes";
-import { GuestFeedbackForm } from "@/components/guest-feedback-form";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils";
@@ -51,7 +51,11 @@ function ItemList({
               />
             )}
             <div className="flex flex-col gap-1">
-              <span className={cn("text-body", done && "text-muted-foreground line-through")}>
+              <span
+                className={`text-body ${
+                  done ? "text-muted-foreground line-through" : "text-foreground"
+                }`}
+              >
                 <span className="font-semibold">{it.name}:</span> {it.description}
               </span>
               {it.helper && (
@@ -244,6 +248,22 @@ export default async function TurnoverDetailPage({
     prefillAmount = (rate?.default_rate as number | null) ?? null;
   }
 
+  // Sole-admin first name for "Paid … by …" (full multi-admin name handling is
+  // backlogged as open-source prep).
+  const { data: adminRow } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("role", "admin")
+    .eq("active", true)
+    .order("display_name", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const adminFirst =
+    (adminRow?.display_name as string | undefined)?.split(" ")[0] || "the admin";
+  const paidDate = payment?.paid_at
+    ? formatNiceDate(String(payment.paid_at).slice(0, 10))
+    : null;
+
   const prepNotes = (turnover.notes as string | null) ?? "";
   const checklistItems = (checklist ?? []) as Item[];
   const inventoryItems = (inventory ?? []) as Item[];
@@ -297,15 +317,13 @@ export default async function TurnoverDetailPage({
           )}
         </div>
 
-        {/* Prep notes — sits right above the claim / start / release actions */}
-        <Card className="flex flex-col gap-3 p-6">
-          <h2 className="text-heading">Prep notes</h2>
-          <PrepNotes
-            turnoverId={turnover.id as string}
-            initial={prepNotes}
-            canEdit={isAdmin || isAssigned}
-          />
-        </Card>
+        {/* Prep notes — reads as a paragraph about the turnover, right above the
+            claim / start / release actions */}
+        <PrepNotes
+          turnoverId={turnover.id as string}
+          initial={prepNotes}
+          canEdit={isAdmin || isAssigned}
+        />
 
         {/* Claim / start / release */}
         {isActive && (isAdmin || !isClaimed || isAssigned) && (
@@ -332,45 +350,12 @@ export default async function TurnoverDetailPage({
               items={checklistItems}
               initialChecked={checkedItems}
               inventoryItems={inventoryItems}
-              supplyNotes={supplyNotes}
-              canAddSupplies={isAdmin || isAssigned}
-              isAdmin={isAdmin}
             />
           </Card>
         )}
 
-        {/* Completed: read-only summary + late additions */}
-        {status === "completed" && (
-          <>
-            <Card className="flex flex-col gap-4 p-6">
-              <h2 className="text-heading">Guest feedback</h2>
-              <FeedbackList feedback={feedbackList} />
-              {(isAdmin || isAssigned) && (
-                <div className="border-t border-border pt-4">
-                  <GuestFeedbackForm turnoverId={turnover.id as string} />
-                </div>
-              )}
-            </Card>
-
-            <Card className="flex flex-col gap-4 p-6">
-              <h2 className="text-heading">Before you leave</h2>
-              <ItemList items={checklistItems} checked={checkedItems} />
-            </Card>
-
-            <Card className="flex flex-col gap-4 p-6">
-              <h2 className="text-heading">Inventory</h2>
-              <SupplyNotes
-                turnoverId={turnover.id as string}
-                notes={supplyNotes}
-                canAdd={isAdmin || isAssigned}
-                isAdmin={isAdmin}
-              />
-            </Card>
-          </>
-        )}
-
-        {/* Follow-up notes (admin ↔ assigned cleaner) */}
-        {assignee && canSeeNotes && (
+        {/* After completion, the main info is the follow-up notes + payment. */}
+        {status === "completed" && assignee && canSeeNotes && (
           <Card className="flex flex-col gap-4 p-6">
             <h2 className="text-heading">Follow-up notes from Daniel</h2>
             {cleanerNotes.length > 0 ? (
@@ -396,8 +381,7 @@ export default async function TurnoverDetailPage({
           </Card>
         )}
 
-        {/* Payment */}
-        {assignee && (isAdmin || isAssigned) && (
+        {status === "completed" && assignee && (isAdmin || isAssigned) && (
           <Card className="flex flex-col gap-4 p-6">
             <h2 className="text-heading">Payment</h2>
             {isAdmin ? (
@@ -409,11 +393,45 @@ export default async function TurnoverDetailPage({
             ) : (
               <p className="text-body text-foreground">
                 {paid
-                  ? `Paid${paymentAmount != null ? ` $${paymentAmount}` : ""}.`
+                  ? `Paid${paymentAmount != null ? ` $${paymentAmount}` : ""} by ${adminFirst} on ${paidDate}.`
                   : "Not paid yet."}
               </p>
             )}
           </Card>
+        )}
+
+        {/* Everything captured during the turnover, collapsed by default. */}
+        {status === "completed" && (
+          <details className="rounded-lg border border-border p-4">
+            <summary className="cursor-pointer text-heading">Turnover details</summary>
+            <div className="flex flex-col gap-6 pt-4">
+              <div className="flex flex-col gap-2">
+                <h3 className="text-heading">Guest feedback</h3>
+                <FeedbackList feedback={feedbackList} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-heading">Before you leave</h3>
+                <ItemList items={checklistItems} checked={checkedItems} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-heading">Flagged low</h3>
+                {supplyNotes.length > 0 ? (
+                  supplyNotes.map((n) => (
+                    <p key={n.id} className="text-body text-foreground">
+                      {n.body}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-caption text-muted-foreground">Nothing flagged.</p>
+                )}
+              </div>
+              {(isAdmin || isAssigned) && (
+                <div>
+                  <ReopenTurnoverButton turnoverId={turnover.id as string} />
+                </div>
+              )}
+            </div>
+          </details>
         )}
 
         {isAdmin && turnover.source === "manual" && (

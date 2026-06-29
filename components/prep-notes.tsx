@@ -72,25 +72,23 @@ export function PrepNotes({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-1">
       {hasNote ? (
         <p className="whitespace-pre-wrap text-body text-foreground">{initial}</p>
       ) : (
-        <p className="text-caption text-muted-foreground">No notes yet.</p>
+        !canEdit && <p className="text-body text-muted-foreground">No prep notes.</p>
       )}
       {canEdit && (
-        <div>
-          <Button
-            size={hasNote ? "sm" : "touch"}
-            variant="outline"
-            onClick={() => {
-              setNotes(initial);
-              setEditing(true);
-            }}
-          >
-            {hasNote ? "Add to note" : "Add note"}
-          </Button>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setNotes(initial);
+            setEditing(true);
+          }}
+          className="inline-flex w-fit items-center gap-1 text-caption font-semibold text-muted-foreground hover:text-foreground"
+        >
+          {hasNote ? "Add to note" : "Add note"}
+        </button>
       )}
     </div>
   );

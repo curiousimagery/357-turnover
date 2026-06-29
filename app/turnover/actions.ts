@@ -250,6 +250,34 @@ export async function savePrepNotes(input: {
 }
 
 /**
+ * Reopen a completed turnover for editing (e.g. it was marked complete by
+ * mistake). Back to 'scheduled', keeping started_at so it lands on the closeout
+ * view with everything unlocked again. Gated to admin or the assignee.
+ */
+export async function reopenTurnover(turnoverId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const { isAdmin, isAssigned } = await adminOrAssigned(supabase, user.id, turnoverId);
+  if (!isAdmin && !isAssigned) {
+    return { ok: false, error: "Only the assigned cleaner or an admin can reopen this." };
+  }
+
+  const { error } = await createAdminClient()
+    .from("turnovers")
+    .update({ status: "scheduled", completed_at: null })
+    .eq("id", turnoverId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/turnover/${turnoverId}`);
+  revalidatePath("/schedule");
+  return { ok: true };
+}
+
+/**
  * Mark a claimed turnover "started" (the cleaner has begun). Drives the
  * progressive page: the closeout work only appears once started. Idempotent —
  * a second start keeps the original timestamp. Gated to admin or the assignee.
@@ -433,6 +461,8 @@ export async function completeTurnover(input: {
     input.cleanliness && input.cleanliness >= 1 && input.cleanliness <= 5
       ? input.cleanliness
       : null;
+  // One feedback record per turnover — replace any prior (e.g. on a reopen → redo).
+  await admin.from("guest_feedback").delete().eq("turnover_id", input.turnoverId);
   if (cleanliness || input.note.trim()) {
     await admin.from("guest_feedback").insert({
       turnover_id: input.turnoverId,

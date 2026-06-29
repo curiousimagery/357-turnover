@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SupplyNotes, type SupplyNote } from "@/components/supply-notes";
 import { WhatWeStockDialog } from "@/components/what-we-stock-dialog";
 import { completeTurnover, setChecklistItem } from "@/app/turnover/actions";
 
@@ -27,22 +26,17 @@ export function CloseoutFlow({
   items,
   initialChecked,
   inventoryItems,
-  supplyNotes,
-  canAddSupplies,
-  isAdmin,
 }: {
   turnoverId: string;
   items: Item[];
   initialChecked: Record<string, boolean>;
   inventoryItems: Item[];
-  supplyNotes: SupplyNote[];
-  canAddSupplies: boolean;
-  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState<Record<string, boolean>>(initialChecked);
   const [cleanliness, setCleanliness] = useState(0);
   const [note, setNote] = useState("");
+  const [supplyNote, setSupplyNote] = useState("");
   const [pending, startTransition] = useTransition();
 
   const checkedCount = items.filter((i) => checked[i.id]).length;
@@ -71,6 +65,7 @@ export function CloseoutFlow({
         turnoverId,
         cleanliness: cleanliness || null,
         note,
+        supplyNote,
       });
       if (result.ok) {
         toast.success("Turnover marked complete");
@@ -133,10 +128,9 @@ export function CloseoutFlow({
               />
               <Label htmlFor={`chk-${it.id}`} className="flex cursor-pointer flex-col gap-1">
                 <span
-                  className={cn(
-                    "text-body",
-                    checked[it.id] && "text-muted-foreground line-through",
-                  )}
+                  className={`text-body ${
+                    checked[it.id] ? "text-muted-foreground line-through" : "text-foreground"
+                  }`}
                 >
                   <span className="font-semibold">{it.name}:</span> {it.description}
                 </span>
@@ -151,17 +145,21 @@ export function CloseoutFlow({
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-heading">Anything running low?</h3>
+          <Label htmlFor="running-low">Anything running low?</Label>
           <WhatWeStockDialog items={inventoryItems} />
         </div>
-        <SupplyNotes
-          turnoverId={turnoverId}
-          notes={supplyNotes}
-          canAdd={canAddSupplies}
-          isAdmin={isAdmin}
+        <Textarea
+          id="running-low"
+          value={supplyNote}
+          onChange={(e) => setSupplyNote(e.target.value)}
+          className="text-body"
+          placeholder="e.g. down to one roll of paper towels, almost out of coffee"
         />
+        <span className="text-caption text-muted-foreground">
+          Added to the inventory list when you mark complete.
+        </span>
       </div>
 
       <Button
