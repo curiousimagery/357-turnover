@@ -6,6 +6,29 @@ and `DATA_MODEL.md`. Steps to deploy the current build are in `docs/GO_LIVE.md`.
 Roughly ordered: pre-launch hardening first, then the near-term feature, then
 deferred features and enhancements.
 
+## Wave 1 nits (from Daniel's testing, 2026-06-29)
+
+Small, concrete fixes found while clicking around. Tackle as bite-size increments.
+
+- **Notify on manual-turnover delete.** Deleting a manual turnover doesn't tell
+  the assigned cleaner. Send a cancellation-style notice (reuse
+  `notificationCopy.cancelled` / the outbox) to whoever held it, in
+  `deleteTurnover` before the row is removed (read the assignee first).
+- **Header overflows on mobile.** The nav doesn't fit and has no overflow state.
+  Switch to a hamburger → full drawer **or** a `…` overflow menu — whichever is
+  less complexity (likely a single shadcn `Sheet` drawer behind a menu button at
+  a `sm:` breakpoint, desktop nav unchanged).
+- **Schedule filters: one row, one convention.** The 3 pickers take three lines
+  and mix segmented + dropdown. Make all three the "Who" dropdown style, lay them
+  side-by-side on one line, persist the selected values (not just defaults), and
+  anchor them in a light-gray rounded header band above the list.
+- **Customize the magic-link (sign-in) email.** It sends as "Supabase Auth" with
+  generic copy. We *do* control it — it's a Supabase **dashboard** template, not
+  `lib/notify/copy.ts`. Edit subject/body (Authentication → Email Templates; see
+  `docs/AUTH_EMAIL_SETUP.md`) and configure **custom SMTP (Resend)** so the
+  sender is `…@mail.curiousimagery.com` instead of Supabase's. Same setup also
+  brands the invite + change-email emails.
+
 ## Pre-launch (do before / with the real rollout)
 
 - **Email deliverability.** Verify a Resend domain (SPF/DKIM/DMARC) and set
