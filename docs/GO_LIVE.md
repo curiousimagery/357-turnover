@@ -21,6 +21,8 @@ features won't actually work until the migration is applied.)
   - Phases 5–6: `supabase/migrations/20260624070000_linens.sql`
   - Supplies: `supabase/migrations/20260628000000_supply_notes.sql`
   - Closeout ticks: `supabase/migrations/20260628010000_checklist_completions.sql`
+  - Linens simplify: `supabase/migrations/20260628020000_linens_simplify.sql`
+  - Turnover start/creator: `supabase/migrations/20260629000000_turnover_started_creator.sql`
 - [ ] **Merge `supplies-and-copy` → `main` and push** (Vercel auto-deploys `main`):
   ```bash
   git checkout main && git merge --ff-only supplies-and-copy && git push

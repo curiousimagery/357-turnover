@@ -6,7 +6,8 @@ import { SiteHeader } from "@/components/site-header";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { CleanerTag } from "@/components/cleaner-tag";
-import { CloseoutChecklist } from "@/components/closeout-checklist";
+import { CloseoutFlow } from "@/components/closeout-flow";
+import { StartTurnoverButton } from "@/components/start-turnover-button";
 import { SupplyNotes, type SupplyNote } from "@/components/supply-notes";
 import { DeleteTurnoverButton } from "@/components/delete-turnover-button";
 import { CleanerNoteForm } from "@/components/cleaner-note-form";
@@ -23,6 +24,8 @@ export const metadata = { title: "Turnover — 357 Oasis Turnovers" };
 
 type Item = { id: string; name: string; description: string; helper: string | null };
 
+/** Read-only render of a list (checklist results / stock reference). One line:
+ *  **Name:** description; helper below in muted (non-italic) text. */
 function ItemList({
   items,
   checked,
@@ -48,23 +51,51 @@ function ItemList({
               />
             )}
             <div className="flex flex-col gap-1">
-              <span
-                className={cn(
-                  "text-body font-semibold",
-                  done ? "text-muted-foreground line-through" : "text-foreground",
-                )}
-              >
-                {it.name}
+              <span className={cn("text-body", done && "text-muted-foreground line-through")}>
+                <span className="font-semibold">{it.name}:</span> {it.description}
               </span>
-              <span className="text-caption text-muted-foreground">{it.description}</span>
               {it.helper && (
-                <span className="text-caption text-muted-foreground italic">{it.helper}</span>
+                <span className="text-caption text-muted-foreground">{it.helper}</span>
               )}
             </div>
           </div>
         );
       })}
     </div>
+  );
+}
+
+function FeedbackList({
+  feedback,
+}: {
+  feedback: { cleanliness: number | null; note: string | null }[];
+}) {
+  if (feedback.length === 0) {
+    return <p className="text-caption text-muted-foreground">No feedback yet.</p>;
+  }
+  return (
+    <>
+      {feedback.map((f, i) => (
+        <div key={i} className="flex flex-col gap-1">
+          {f.cleanliness != null && (
+            <div className="flex gap-1" aria-label={`${f.cleanliness} of 5`}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Star
+                  key={n}
+                  className={cn(
+                    "size-5",
+                    n <= (f.cleanliness as number)
+                      ? "fill-warning text-warning"
+                      : "text-muted-foreground",
+                  )}
+                />
+              ))}
+            </div>
+          )}
+          {f.note && <p className="text-body text-foreground">{f.note}</p>}
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -90,7 +121,7 @@ export default async function TurnoverDetailPage({
   const { data: turnover } = await supabase
     .from("turnovers")
     .select(
-      "id, turnover_date, status, is_same_day, source, confirmation_code, notes, turnover_assignments ( cleaner_id, profiles ( display_name, color ) )",
+      "id, turnover_date, status, is_same_day, source, confirmation_code, created_by, started_at, notes, turnover_assignments ( cleaner_id, profiles ( display_name, color ) )",
     )
     .eq("id", id)
     .maybeSingle();
@@ -103,7 +134,9 @@ export default async function TurnoverDetailPage({
   const assignee = assignment?.profiles ?? null;
   const isAssigned = assignment?.cleaner_id === user.id;
   const status = turnover.status as string;
-  const canComplete = (isAdmin || isAssigned) && status === "scheduled";
+  const isClaimed = !!assignment;
+  const started = !!turnover.started_at;
+  const canWork = isAdmin || isAssigned;
   const canSeeNotes = isAdmin || isAssigned;
 
   const [
@@ -143,7 +176,6 @@ export default async function TurnoverDetailPage({
           .eq("role", "cleaner")
           .order("display_name", { ascending: true })
       : Promise.resolve({ data: [] as { id: string; display_name: string; color: string | null }[] }),
-    // Persisted closeout ticks + supply flags. Defensive: empty if not yet migrated.
     supabase
       .from("turnover_checklist_completions")
       .select("item_id")
@@ -159,26 +191,30 @@ export default async function TurnoverDetailPage({
     (completions ?? []).map((c) => [c.item_id as string, true]),
   );
 
-  // Resolve supply-note author names (cleaner or admin) in one lookup.
-  const supplyAuthorIds = [
-    ...new Set((supplyRows ?? []).map((n) => n.author_id).filter(Boolean)),
+  // Names for the manual creator + supply-note authors, in one lookup.
+  const peopleIds = [
+    ...new Set([
+      ...((supplyRows ?? []).map((n) => n.author_id)),
+      (turnover.created_by as string | null) ?? null,
+    ].filter(Boolean)),
   ] as string[];
-  const { data: supplyAuthors } = supplyAuthorIds.length
-    ? await supabase.from("profiles").select("id, display_name").in("id", supplyAuthorIds)
+  const { data: people } = peopleIds.length
+    ? await supabase.from("profiles").select("id, display_name").in("id", peopleIds)
     : { data: [] as { id: string; display_name: string }[] };
-  const supplyNameById = new Map(
-    (supplyAuthors ?? []).map((a) => [a.id, a.display_name as string]),
-  );
+  const nameById = new Map((people ?? []).map((p) => [p.id, p.display_name as string]));
+
+  const creatorName = turnover.created_by
+    ? (nameById.get(turnover.created_by as string) ?? null)
+    : null;
   const supplyNotes: SupplyNote[] = (supplyRows ?? []).map((n) => ({
     id: n.id as string,
     body: n.body as string,
-    authorName: n.author_id ? (supplyNameById.get(n.author_id as string) ?? null) : null,
+    authorName: n.author_id ? (nameById.get(n.author_id as string) ?? null) : null,
     createdAt: n.created_at as string,
     resolved: !!n.resolved,
   }));
 
-  // Admin→cleaner notes ride the notifications table; the recipient is the
-  // assigned cleaner, so we read them with the service role (gated above).
+  // Admin→cleaner notes ride the notifications table; read with the service role.
   let cleanerNotes: { body: string; created_at: string }[] = [];
   if (canSeeNotes) {
     const { data } = await createAdminClient()
@@ -209,6 +245,11 @@ export default async function TurnoverDetailPage({
   }
 
   const prepNotes = (turnover.notes as string | null) ?? "";
+  const checklistItems = (checklist ?? []) as Item[];
+  const inventoryItems = (inventory ?? []) as Item[];
+  const feedbackList = (feedback ?? []) as { cleanliness: number | null; note: string | null }[];
+
+  const isActive = status === "scheduled";
 
   return (
     <div className="min-h-svh">
@@ -221,6 +262,7 @@ export default async function TurnoverDetailPage({
           <ArrowLeft className="size-4" /> Back to schedule
         </Link>
 
+        {/* Booking details */}
         <div className="flex flex-col gap-2">
           <div className="text-display">{formatMonthDay(turnover.turnover_date as string)}</div>
           <div className="text-caption text-muted-foreground">
@@ -230,54 +272,34 @@ export default async function TurnoverDetailPage({
             {turnover.is_same_day ? (
               <StatusBadge tone="urgent">Same-day</StatusBadge>
             ) : (
-              status !== "completed" && <StatusBadge tone="neutral">Relaxed</StatusBadge>
+              isActive && <StatusBadge tone="neutral">Relaxed</StatusBadge>
             )}
             {status === "completed" && <StatusBadge tone="success">Completed</StatusBadge>}
             {status === "cancelled" && <StatusBadge tone="danger">Cancelled</StatusBadge>}
-            {turnover.source === "manual" && <StatusBadge tone="outline">Manual</StatusBadge>}
-            {turnover.confirmation_code && (
-              <span className="text-caption text-muted-foreground">
-                Airbnb · {turnover.confirmation_code as string}
-              </span>
-            )}
             {assignee && (
               <CleanerTag name={assignee.display_name} color={assignee.color} withName />
             )}
           </div>
-          {status === "scheduled" && (
-            <div className="pt-2">
-              <TurnoverActions
-                turnoverId={turnover.id as string}
-                assigneeId={assignment?.cleaner_id ?? null}
-                isAdmin={isAdmin}
-                currentUserId={user.id}
-                cleaners={cleaners}
-              />
-            </div>
+          {isActive && (
+            <p className="text-caption text-muted-foreground">
+              Arrive 11:30–noon · finish by 4:00
+            </p>
+          )}
+          {turnover.confirmation_code && (
+            <p className="text-caption text-muted-foreground">
+              Airbnb · {turnover.confirmation_code as string}
+            </p>
+          )}
+          {turnover.source === "manual" && (
+            <p className="text-caption text-muted-foreground">
+              {creatorName ? `Manually added by ${creatorName}` : "Manually added"}
+            </p>
           )}
         </div>
 
-        <Card className="flex flex-col gap-4 p-6">
-          <h2 className="text-heading">Before you leave</h2>
-          {canComplete ? (
-            <CloseoutChecklist
-              turnoverId={turnover.id as string}
-              items={(checklist ?? []) as Item[]}
-              initialChecked={checkedItems}
-            />
-          ) : (
-            <ItemList items={(checklist ?? []) as Item[]} checked={checkedItems} />
-          )}
-        </Card>
-
+        {/* Prep notes — sits right above the claim / start / release actions */}
         <Card className="flex flex-col gap-3 p-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-heading">Prep notes</h2>
-            <p className="text-caption text-muted-foreground">
-              Shared between you and Daniel — early check-in, special requests,
-              lost &amp; found.
-            </p>
-          </div>
+          <h2 className="text-heading">Prep notes</h2>
           <PrepNotes
             turnoverId={turnover.id as string}
             initial={prepNotes}
@@ -285,7 +307,70 @@ export default async function TurnoverDetailPage({
           />
         </Card>
 
-        {canSeeNotes && (
+        {/* Claim / start / release */}
+        {isActive && (isAdmin || !isClaimed || isAssigned) && (
+          <div className="flex flex-wrap gap-2">
+            {isClaimed && !started && canWork && (
+              <StartTurnoverButton turnoverId={turnover.id as string} />
+            )}
+            <TurnoverActions
+              turnoverId={turnover.id as string}
+              assigneeId={assignment?.cleaner_id ?? null}
+              isAdmin={isAdmin}
+              currentUserId={user.id}
+              cleaners={cleaners}
+            />
+          </div>
+        )}
+
+        {/* The closeout work appears once started */}
+        {isActive && started && canWork && (
+          <Card className="flex flex-col gap-6 p-6">
+            <h2 className="text-heading">Close out the turnover</h2>
+            <CloseoutFlow
+              turnoverId={turnover.id as string}
+              items={checklistItems}
+              initialChecked={checkedItems}
+              inventoryItems={inventoryItems}
+              supplyNotes={supplyNotes}
+              canAddSupplies={isAdmin || isAssigned}
+              isAdmin={isAdmin}
+            />
+          </Card>
+        )}
+
+        {/* Completed: read-only summary + late additions */}
+        {status === "completed" && (
+          <>
+            <Card className="flex flex-col gap-4 p-6">
+              <h2 className="text-heading">Guest feedback</h2>
+              <FeedbackList feedback={feedbackList} />
+              {(isAdmin || isAssigned) && (
+                <div className="border-t border-border pt-4">
+                  <GuestFeedbackForm turnoverId={turnover.id as string} />
+                </div>
+              )}
+            </Card>
+
+            <Card className="flex flex-col gap-4 p-6">
+              <h2 className="text-heading">Before you leave</h2>
+              <ItemList items={checklistItems} checked={checkedItems} />
+            </Card>
+
+            <Card className="flex flex-col gap-4 p-6">
+              <h2 className="text-heading">Inventory</h2>
+              <SupplyNotes
+                turnoverId={turnover.id as string}
+                notes={supplyNotes}
+                canAdd={isAdmin || isAssigned}
+                isAdmin={isAdmin}
+              />
+            </Card>
+          </>
+        )}
+
+        {/* Follow-up notes (admin ↔ assigned cleaner) */}
+        {assignee && canSeeNotes && (
           <Card className="flex flex-col gap-4 p-6">
             <h2 className="text-heading">Follow-up notes from Daniel</h2>
             {cleanerNotes.length > 0 ? (
@@ -311,6 +396,7 @@ export default async function TurnoverDetailPage({
           </Card>
         )}
 
+        {/* Payment */}
         {assignee && (isAdmin || isAssigned) && (
           <Card className="flex flex-col gap-4 p-6">
             <h2 className="text-heading">Payment</h2>
@@ -329,62 +415,6 @@ export default async function TurnoverDetailPage({
             )}
           </Card>
         )}
-
-        <Card className="flex flex-col gap-4 p-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-heading">Inventory</h2>
-            <p className="text-caption text-muted-foreground">
-              Flag anything running low — it shows up on the Inventory list.
-            </p>
-          </div>
-          <SupplyNotes
-            turnoverId={turnover.id as string}
-            notes={supplyNotes}
-            canAdd={isAdmin || isAssigned}
-            isAdmin={isAdmin}
-          />
-          {(inventory ?? []).length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-border pt-4">
-              <h3 className="text-caption font-semibold text-muted-foreground">
-                What we stock
-              </h3>
-              <ItemList items={(inventory ?? []) as Item[]} />
-            </div>
-          )}
-        </Card>
-
-        <Card className="flex flex-col gap-4 p-6">
-          <h2 className="text-heading">Guest feedback</h2>
-          {(feedback ?? []).length > 0 ? (
-            (feedback ?? []).map((f, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                {f.cleanliness != null && (
-                  <div className="flex gap-1" aria-label={`${f.cleanliness} of 5`}>
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <Star
-                        key={n}
-                        className={cn(
-                          "size-5",
-                          n <= (f.cleanliness as number)
-                            ? "fill-warning text-warning"
-                            : "text-muted-foreground",
-                        )}
-                      />
-                    ))}
-                  </div>
-                )}
-                {f.note && <p className="text-body text-foreground">{f.note as string}</p>}
-              </div>
-            ))
-          ) : (
-            <p className="text-caption text-muted-foreground">No feedback yet.</p>
-          )}
-          {status === "completed" && (isAdmin || isAssigned) && (
-            <div className="border-t border-border pt-4">
-              <GuestFeedbackForm turnoverId={turnover.id as string} />
-            </div>
-          )}
-        </Card>
 
         {isAdmin && turnover.source === "manual" && (
           <div>

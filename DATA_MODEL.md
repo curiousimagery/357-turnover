@@ -50,8 +50,10 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
   (`airbnb`|`manual`), `booking_out_id`, `booking_in_id`, `is_same_day`
   (recomputed every sync), `status`
   (`scheduled`|`claimed`|`completed`|`cancelled`), `completed_at`, `notes`
-  (admin-set free text, currently used for manual turnovers), `confirmation_code`.
-  Sync only touches `airbnb` rows; never hard-deletes.
+  (shared prep notes), `confirmation_code`, `started_at` (when the cleaner taps
+  "Start turnover" — drives the progressive page), `created_by` (who added a
+  manual one) _(both `…20260629000000`)_. Sync only touches `airbnb` rows; never
+  hard-deletes.
 - **turnover_assignments** _(P2)_ — who is doing it. `turnover_id`, `cleaner_id`,
   `claimed_at`. **`unique (turnover_id)`** makes double-coverage impossible at
   the DB level. _(Payment moved to its own `payments` table, not columns here.)_

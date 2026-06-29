@@ -36,7 +36,9 @@ export function ProfileMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-md border border-border py-1 pl-1 pr-2 outline-none transition-colors hover:bg-muted focus-visible:ring-1 focus-visible:ring-ring">
-        <CleanerTag name={name} color={color} withName />
+        <CleanerTag name={name} color={color} />
+        {/* Name hides on tiny screens so the top bar fits — initials + caret only. */}
+        <span className="hidden text-caption text-foreground sm:inline">{name}</span>
         <ChevronDown className="size-4 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

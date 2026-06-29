@@ -24,6 +24,7 @@ type RawRow = {
   status: TurnoverCardData["status"];
   source: TurnoverCardData["source"];
   confirmation_code: string | null;
+  created_by: string | null;
   notes: string | null;
   // PostgREST returns this as a single object (the unique(turnover_id)
   // constraint makes it a one-to-one), but be defensive about array too.
@@ -56,7 +57,7 @@ export default async function SchedulePage() {
     supabase
       .from("turnovers")
       .select(
-        "id, turnover_date, is_same_day, status, source, confirmation_code, notes, turnover_assignments ( cleaner_id, profiles ( id, display_name, color ) )",
+        "id, turnover_date, is_same_day, status, source, confirmation_code, created_by, notes, turnover_assignments ( cleaner_id, profiles ( id, display_name, color ) )",
       )
       .neq("status", "cancelled")
       .order("turnover_date", { ascending: true }),
@@ -82,6 +83,17 @@ export default async function SchedulePage() {
     color: c.color,
   }));
 
+  // Names of admins who added manual turnovers (for the "Manually added by …" line).
+  const creatorIds = [
+    ...new Set(((rows ?? []) as unknown as RawRow[]).map((r) => r.created_by).filter(Boolean)),
+  ] as string[];
+  const { data: creators } = creatorIds.length
+    ? await supabase.from("profiles").select("id, display_name").in("id", creatorIds)
+    : { data: [] as { id: string; display_name: string }[] };
+  const creatorNameById = new Map(
+    (creators ?? []).map((c) => [c.id, c.display_name as string]),
+  );
+
   const scheduleRows: ScheduleRow[] = ((rows ?? []) as unknown as RawRow[]).map(
     (t) => {
       const assignment = firstEmbed(t.turnover_assignments);
@@ -93,6 +105,7 @@ export default async function SchedulePage() {
         status: t.status,
         source: t.source,
         confirmationCode: t.confirmation_code,
+        createdByName: t.created_by ? (creatorNameById.get(t.created_by) ?? null) : null,
         hasNotes: !!t.notes?.trim() || feedbackSet.has(t.id),
         assignee: assignee
           ? { name: assignee.display_name, color: assignee.color }
@@ -109,18 +122,16 @@ export default async function SchedulePage() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-4">
             <h1 className="text-display">Schedule</h1>
-            {!error && (
-              <SyncStatus lastSyncedAt={syncState?.last_success_at ?? null} />
-            )}
+            <div className="flex items-center gap-2">
+              {isAdmin && <ManualTurnoverDialog />}
+              {!error && (
+                <SyncStatus lastSyncedAt={syncState?.last_success_at ?? null} />
+              )}
+            </div>
           </div>
           <p className="text-body text-muted-foreground">
             Filter by who, when, and status. Same-day turnovers are flagged.
           </p>
-          {isAdmin && (
-            <div className="pt-2">
-              <ManualTurnoverDialog />
-            </div>
-          )}
         </div>
 
         {error ? (

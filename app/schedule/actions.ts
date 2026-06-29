@@ -258,6 +258,7 @@ export async function createManualTurnover(input: {
       is_same_day: false,
       status: "scheduled",
       notes: input.notes.trim() || null,
+      created_by: gate.userId,
     })
     .select("id")
     .single();

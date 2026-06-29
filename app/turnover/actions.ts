@@ -250,6 +250,34 @@ export async function savePrepNotes(input: {
 }
 
 /**
+ * Mark a claimed turnover "started" (the cleaner has begun). Drives the
+ * progressive page: the closeout work only appears once started. Idempotent —
+ * a second start keeps the original timestamp. Gated to admin or the assignee.
+ */
+export async function startTurnover(turnoverId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const { isAdmin, isAssigned } = await adminOrAssigned(supabase, user.id, turnoverId);
+  if (!isAdmin && !isAssigned) {
+    return { ok: false, error: "Only the assigned cleaner or an admin can start this." };
+  }
+
+  const { error } = await createAdminClient()
+    .from("turnovers")
+    .update({ started_at: new Date().toISOString() })
+    .eq("id", turnoverId)
+    .is("started_at", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/turnover/${turnoverId}`);
+  return { ok: true };
+}
+
+/**
  * Tick / untick a closeout checklist item for a turnover. Persists per-item so
  * the ticks survive a reload and the admin can see what was checked. Gated to the
  * assigned cleaner or an admin; written via the admin client.

@@ -9,7 +9,8 @@ import { savePrepNotes } from "@/app/turnover/actions";
 
 /**
  * Shared prep notes on a turnover — both the admin and the assigned cleaner can
- * edit. Everyone else sees them read-only.
+ * edit. Display-first: the note itself is featured; an "Add note" / "Add to note"
+ * button opens an editable field. Everyone else just sees it read-only.
  */
 export function PrepNotes({
   turnoverId,
@@ -21,22 +22,18 @@ export function PrepNotes({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const [editing, setEditing] = useState(false);
   const [notes, setNotes] = useState(initial);
   const [pending, startTransition] = useTransition();
 
-  if (!canEdit) {
-    return initial.trim() ? (
-      <p className="whitespace-pre-wrap text-body text-foreground">{initial}</p>
-    ) : (
-      <p className="text-caption text-muted-foreground">No notes yet.</p>
-    );
-  }
+  const hasNote = initial.trim().length > 0;
 
   function save() {
     startTransition(async () => {
       const result = await savePrepNotes({ turnoverId, notes });
       if (result.ok) {
         toast.success("Notes saved");
+        setEditing(false);
         router.refresh();
       } else {
         toast.error(result.error);
@@ -44,19 +41,57 @@ export function PrepNotes({
     });
   }
 
-  return (
-    <div className="flex flex-col gap-2">
-      <textarea
-        className="min-h-24 w-full rounded-md border border-input bg-background p-3 text-body"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Early check-in, luggage drop, special requests, anything left behind…"
-      />
-      <div>
-        <Button size="touch" disabled={pending || notes === initial} onClick={save}>
-          {pending ? "Saving…" : "Save notes"}
-        </Button>
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-2">
+        <textarea
+          autoFocus
+          className="min-h-24 w-full rounded-md border border-input bg-background p-3 text-body"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Early check-in, luggage drop, special requests…"
+        />
+        <div className="flex gap-2">
+          <Button size="touch" disabled={pending || notes === initial} onClick={save}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            size="touch"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => {
+              setNotes(initial);
+              setEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {hasNote ? (
+        <p className="whitespace-pre-wrap text-body text-foreground">{initial}</p>
+      ) : (
+        <p className="text-caption text-muted-foreground">No notes yet.</p>
+      )}
+      {canEdit && (
+        <div>
+          <Button
+            size={hasNote ? "sm" : "touch"}
+            variant="outline"
+            onClick={() => {
+              setNotes(initial);
+              setEditing(true);
+            }}
+          >
+            {hasNote ? "Add to note" : "Add note"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

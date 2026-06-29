@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -49,8 +50,9 @@ export function ManualTurnoverDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="touch">
-          Add manual turnover
+        <Button variant="ghost" size="sm" className="text-muted-foreground">
+          <Plus className="size-4" />
+          Add manual
         </Button>
       </DialogTrigger>
       <DialogContent>
