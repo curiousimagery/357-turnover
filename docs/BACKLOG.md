@@ -8,26 +8,19 @@ deferred features and enhancements.
 
 ## Wave 1 nits (from Daniel's testing, 2026-06-29)
 
-Small, concrete fixes found while clicking around. Tackle as bite-size increments.
-
-- **Notify on manual-turnover delete.** Deleting a manual turnover doesn't tell
-  the assigned cleaner. Send a cancellation-style notice (reuse
-  `notificationCopy.cancelled` / the outbox) to whoever held it, in
-  `deleteTurnover` before the row is removed (read the assignee first).
-- **Header overflows on mobile.** The nav doesn't fit and has no overflow state.
-  Switch to a hamburger → full drawer **or** a `…` overflow menu — whichever is
-  less complexity (likely a single shadcn `Sheet` drawer behind a menu button at
-  a `sm:` breakpoint, desktop nav unchanged).
-- **Schedule filters: one row, one convention.** The 3 pickers take three lines
-  and mix segmented + dropdown. Make all three the "Who" dropdown style, lay them
-  side-by-side on one line, persist the selected values (not just defaults), and
-  anchor them in a light-gray rounded header band above the list.
-- **Customize the magic-link (sign-in) email.** It sends as "Supabase Auth" with
-  generic copy. We *do* control it — it's a Supabase **dashboard** template, not
-  `lib/notify/copy.ts`. Edit subject/body (Authentication → Email Templates; see
-  `docs/AUTH_EMAIL_SETUP.md`) and configure **custom SMTP (Resend)** so the
-  sender is `…@mail.curiousimagery.com` instead of Supabase's. Same setup also
-  brands the invite + change-email emails.
+- **Notify on manual-turnover delete — DONE.** `deleteTurnover` reads the
+  assignee and sends the cancellation copy first (detached `turnover_id` so the
+  notice survives the cascade delete).
+- **Header overflow on mobile — DONE.** Secondary nav collapses into a hamburger
+  dropdown (`components/mobile-nav.tsx`) under `sm`; inline on desktop.
+- **Schedule filters — DONE.** Three dropdowns on one anchored (muted) row,
+  self-describing options, selections persisted via localStorage.
+- **Customize the Supabase sign-in / account emails — DRAFTED; dashboard step
+  remains (Daniel).** Copy now lives in `lib/notify/external-emails.ts` and shows
+  on `/test/emails`. Still manual: paste the final wording into the Supabase
+  dashboard (Authentication → Email Templates; `docs/AUTH_EMAIL_SETUP.md`) and set
+  **custom SMTP (Resend)** so they send from `…@mail.curiousimagery.com` instead
+  of "Supabase Auth". Covers magic-link, invite, and change-email.
 
 ## Pre-launch (do before / with the real rollout)
 
