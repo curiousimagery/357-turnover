@@ -35,9 +35,9 @@
     --ring: hsl(222 24% 16%);
 
     /* Status tokens */
-    --urgent: hsl(14 88% 51%); /* same-day turnover — unmistakable */
+    --urgent: hsl(258, 38%, 49%); /* same-day turnover — unmistakable */
     --urgent-foreground: hsl(0 0% 100%);
-    --success: hsl(152 56% 36%); /* covered / paid / complete */
+    --success: hsl(134, 65%, 33%); /* covered / paid / complete */
     --success-foreground: hsl(0 0% 100%);
     --warning: hsl(38 92% 50%); /* unclaimed / low stock */
     --warning-foreground: hsl(28 75% 14%);
