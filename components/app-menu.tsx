@@ -51,9 +51,10 @@ function ProfileBlock({ name, color, email }: { name: string; color: string | nu
   return (
     <div className="flex items-center gap-3 border-b border-border p-4 pr-10">
       <CleanerTag name={name} color={color} />
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-body font-semibold text-foreground">{name}</span>
-        <span className="truncate text-caption text-muted-foreground">{email}</span>
+      <div className="flex flex-col">
+        <span className="text-body font-semibold text-foreground">{name}</span>
+        {/* Hug to content; wrap only if it can't fit (rather than truncate early). */}
+        <span className="break-all text-caption text-muted-foreground">{email}</span>
       </div>
     </div>
   );
@@ -144,7 +145,7 @@ function DropdownMenuMenu({ name, color, email, unread, links }: MenuProps) {
       <DropdownMenuTrigger aria-label="Menu" className={triggerClass}>
         <Menu className="size-5" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72 p-0">
+      <DropdownMenuContent align="start" className="p-0">
         <ProfileBlock name={name} color={color} email={email} />
 
         <div className="p-1">

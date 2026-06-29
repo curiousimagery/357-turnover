@@ -59,19 +59,28 @@ export function LoginForm({
         <CardHeader>
           <CardTitle className="text-heading">Sign in</CardTitle>
           <CardDescription className="text-caption">
-            We&apos;ll email you a magic link — no password to remember.
+            Enter your email and we&apos;ll send a one-tap sign-in link — no
+            password to remember.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {sent ? (
-            <div className="flex flex-col gap-2" role="status">
+            <div className="flex flex-col gap-3" role="status">
               <p className="text-body font-semibold text-foreground">
-                Check your email
+                Check your email 📬
               </p>
               <p className="text-caption text-muted-foreground">
-                We sent a sign-in link to {email}. Open it on this device to
-                continue.
+                We just sent a sign-in link to {email}. Open it on this device and
+                you&apos;re in — it works once and expires shortly. (No email? Check
+                spam.)
               </p>
+              <button
+                type="button"
+                onClick={() => setSent(false)}
+                className="inline-flex w-fit items-center text-caption font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Use a different email
+              </button>
             </div>
           ) : (
             <form onSubmit={handleLogin}>

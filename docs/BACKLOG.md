@@ -202,6 +202,28 @@ one load-bearing change is the notification-copy signature, which the unit tests
 pin). Optional small migration for `notifications.author_id` if we want true
 multi-admin attribution. Supersedes the "Copy variety" note below.
 
+## Public availability calendar + visit requests
+
+A shareable, **read-only** calendar (public URL, no login) showing the gaps
+between bookings — so friends/family can spot open pockets and request a visit.
+A request creates a pending **manual turnover** that the admin approves (then it
+joins the schedule like any other manual turnover; declining drops it).
+
+- **Availability:** derive open ranges from `bookings` (check-in/out) — the
+  inverse of occupied dates, maybe with a min-gap and a booking horizon. Show as a
+  month grid; never expose guest details (dates only).
+- **Request flow:** a public form (date range + name + note) → a `visit_requests`
+  row (`status` pending/approved/declined). Rate-limit / lightweight anti-spam
+  since it's unauthenticated (the URL is the only gate, or add a shared passphrase).
+- **Approve:** an admin queue; approving creates a manual turnover (reuse
+  `createManualTurnover`) for the checkout date and notifies cleaners as usual.
+- **Surface:** a token in the URL (`/calendar/<token>`) so it's shareable but not
+  guessable; revocable.
+- **Cost/risk:** new public route + table + admin queue. The unauthenticated
+  surface is the main thing to get right (no data leakage, abuse-resistant).
+  Medium effort; isolated from the core (read-only over `bookings` + a request
+  inbox).
+
 ## Later / nice-to-have
 
 - **Web push** — a third notification channel (no schema change; after the core
