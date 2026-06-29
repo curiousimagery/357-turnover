@@ -39,7 +39,7 @@
     --urgent-foreground: hsl(0 0% 100%);
     --success: hsl(134, 65%, 33%); /* covered / paid / complete */
     --success-foreground: hsl(0 0% 100%);
-    --warning: hsl(38 92% 50%); /* unclaimed / low stock */
+    --warning: hsl(52, 85%, 76%); /* unclaimed / low stock */
     --warning-foreground: hsl(28 75% 14%);
     --danger: hsl(0 72% 48%); /* cancelled / conflict */
     --danger-foreground: hsl(0 0% 100%);
