@@ -9,44 +9,44 @@
  */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 22% 12%;
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(222 22% 12%);
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 22% 12%;
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222 22% 12%);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 22% 12%;
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222 22% 12%);
 
-    --primary: 222 24% 16%;
-    --primary-foreground: 0 0% 98%;
+    --primary: hsl(222 24% 16%);
+    --primary-foreground: hsl(0 0% 98%);
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 24% 16%;
+    --secondary: hsl(220 14% 96%);
+    --secondary-foreground: hsl(222 24% 16%);
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 43%;
+    --muted: hsl(220 14% 96%);
+    --muted-foreground: hsl(220 9% 43%);
 
-    --accent: 220 14% 94%;
-    --accent-foreground: 222 24% 16%;
+    --accent: hsl(220 14% 94%);
+    --accent-foreground: hsl(222 24% 16%);
 
-    --border: 220 13% 90%;
-    --input: 220 13% 87%;
-    --ring: 222 24% 16%;
+    --border: hsl(220 13% 90%);
+    --input: hsl(220 13% 87%);
+    --ring: hsl(222 24% 16%);
 
     /* Status tokens */
-    --urgent: 14 88% 51%; /* same-day turnover — unmistakable */
-    --urgent-foreground: 0 0% 100%;
-    --success: 152 56% 36%; /* covered / paid / complete */
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%; /* unclaimed / low stock */
-    --warning-foreground: 28 75% 14%;
-    --danger: 0 72% 48%; /* cancelled / conflict */
-    --danger-foreground: 0 0% 100%;
+    --urgent: hsl(14 88% 51%); /* same-day turnover — unmistakable */
+    --urgent-foreground: hsl(0 0% 100%);
+    --success: hsl(152 56% 36%); /* covered / paid / complete */
+    --success-foreground: hsl(0 0% 100%);
+    --warning: hsl(38 92% 50%); /* unclaimed / low stock */
+    --warning-foreground: hsl(28 75% 14%);
+    --danger: hsl(0 72% 48%); /* cancelled / conflict */
+    --danger-foreground: hsl(0 0% 100%);
 
     /* shadcn maps its destructive variant onto our danger token */
-    --destructive: 0 72% 48%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: hsl(0 72% 48%);
+    --destructive-foreground: hsl(0 0% 100%);
 
     --radius: 0.625rem;
 
@@ -54,53 +54,53 @@
      * Cleaner tag palette — a separate, small, user-chosen set.
      * These never override status tokens. Keep in sync with lib/cleaner-tags.ts.
      */
-    --tag-rose: 347 77% 50%;
-    --tag-amber: 38 92% 50%;
-    --tag-emerald: 158 64% 40%;
-    --tag-sky: 200 90% 42%;
-    --tag-violet: 262 58% 56%;
-    --tag-teal: 173 70% 36%;
-    --tag-slate: 215 25% 40%;
-    --tag-fuchsia: 292 56% 50%;
+    --tag-rose: hsl(347 77% 50%);
+    --tag-amber: hsl(38 92% 50%);
+    --tag-emerald: hsl(158 64% 40%);
+    --tag-sky: hsl(200 90% 42%);
+    --tag-violet: hsl(262 58% 56%);
+    --tag-teal: hsl(173 70% 36%);
+    --tag-slate: hsl(215 25% 40%);
+    --tag-fuchsia: hsl(292 56% 50%);
   }
 
   .dark {
-    --background: 222 24% 9%;
-    --foreground: 0 0% 96%;
+    --background: hsl(222 24% 9%);
+    --foreground: hsl(0 0% 96%);
 
-    --card: 222 22% 12%;
-    --card-foreground: 0 0% 96%;
+    --card: hsl(222 22% 12%);
+    --card-foreground: hsl(0 0% 96%);
 
-    --popover: 222 22% 12%;
-    --popover-foreground: 0 0% 96%;
+    --popover: hsl(222 22% 12%);
+    --popover-foreground: hsl(0 0% 96%);
 
-    --primary: 0 0% 96%;
-    --primary-foreground: 222 24% 12%;
+    --primary: hsl(0 0% 96%);
+    --primary-foreground: hsl(222 24% 12%);
 
-    --secondary: 220 14% 18%;
-    --secondary-foreground: 0 0% 96%;
+    --secondary: hsl(220 14% 18%);
+    --secondary-foreground: hsl(0 0% 96%);
 
-    --muted: 220 14% 18%;
-    --muted-foreground: 220 9% 64%;
+    --muted: hsl(220 14% 18%);
+    --muted-foreground: hsl(220 9% 64%);
 
-    --accent: 220 14% 22%;
-    --accent-foreground: 0 0% 96%;
+    --accent: hsl(220 14% 22%);
+    --accent-foreground: hsl(0 0% 96%);
 
-    --border: 220 14% 22%;
-    --input: 220 14% 26%;
-    --ring: 0 0% 83%;
+    --border: hsl(220 14% 22%);
+    --input: hsl(220 14% 26%);
+    --ring: hsl(0 0% 83%);
 
-    --urgent: 14 86% 56%;
-    --urgent-foreground: 0 0% 100%;
-    --success: 152 52% 42%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 55%;
-    --warning-foreground: 28 75% 12%;
-    --danger: 0 70% 55%;
-    --danger-foreground: 0 0% 100%;
+    --urgent: hsl(14 86% 56%);
+    --urgent-foreground: hsl(0 0% 100%);
+    --success: hsl(152 52% 42%);
+    --success-foreground: hsl(0 0% 100%);
+    --warning: hsl(38 92% 55%);
+    --warning-foreground: hsl(28 75% 12%);
+    --danger: hsl(0 70% 55%);
+    --danger-foreground: hsl(0 0% 100%);
 
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: hsl(0 70% 55%);
+    --destructive-foreground: hsl(0 0% 100%);
   }
 }
 
@@ -129,34 +129,34 @@
  * lib/cleaner-tags.ts, which Tailwind's content scan would otherwise miss.
  */
 .tag-rose {
-  background-color: hsl(var(--tag-rose));
+  background-color: var(--tag-rose);
   color: hsl(0 0% 100%);
 }
 .tag-amber {
-  background-color: hsl(var(--tag-amber));
+  background-color: var(--tag-amber);
   color: hsl(28 75% 14%);
 }
 .tag-emerald {
-  background-color: hsl(var(--tag-emerald));
+  background-color: var(--tag-emerald);
   color: hsl(0 0% 100%);
 }
 .tag-sky {
-  background-color: hsl(var(--tag-sky));
+  background-color: var(--tag-sky);
   color: hsl(0 0% 100%);
 }
 .tag-violet {
-  background-color: hsl(var(--tag-violet));
+  background-color: var(--tag-violet);
   color: hsl(0 0% 100%);
 }
 .tag-teal {
-  background-color: hsl(var(--tag-teal));
+  background-color: var(--tag-teal);
   color: hsl(0 0% 100%);
 }
 .tag-slate {
-  background-color: hsl(var(--tag-slate));
+  background-color: var(--tag-slate);
   color: hsl(0 0% 100%);
 }
 .tag-fuchsia {
-  background-color: hsl(var(--tag-fuchsia));
+  background-color: var(--tag-fuchsia);
   color: hsl(0 0% 100%);
 }
