@@ -22,6 +22,13 @@ export default {
   ],
   theme: {
     extend: {
+      // Two faces: Lora for headings (the display/heading tokens, wired in
+      // globals.css), Nunito for body + buttons (the default `font-sans`).
+      // The CSS variables are set by next/font in app/layout.tsx.
+      fontFamily: {
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "ui-serif", "Georgia", "serif"],
+      },
       // The four-style type ramp. Size / line-height / weight are baked in,
       // so `text-heading` alone yields the full style. (Section 6.2)
       fontSize: {

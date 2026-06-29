@@ -143,6 +143,27 @@ export async function notifyCleanerNote(
   });
 }
 
+/** Tell the cleaner who held a manual turnover that the admin deleted it. Same
+ *  copy as a sync cancellation. `turnover_id` is left null on purpose: the
+ *  turnover row is about to be deleted and notifications cascade on that delete,
+ *  so we detach the notice so it survives in their inbox. */
+export async function notifyManualCancelled(
+  admin: SupabaseClient,
+  args: { date: string; cleanerId: string },
+): Promise<void> {
+  const copy = notificationCopy.cancelled(args.date);
+  await admin.from("notifications").insert({
+    recipient_id: args.cleanerId,
+    type: "cancelled",
+    channel: "email",
+    turnover_id: null,
+    title: copy.title,
+    body: copy.body,
+    status: "pending",
+    dedupe_key: `manual_cancelled:${args.cleanerId}:${args.date}:${Date.now()}`,
+  });
+}
+
 /** Tell the admins a turnover was marked complete. */
 export async function notifyAdminsCompleted(
   admin: SupabaseClient,

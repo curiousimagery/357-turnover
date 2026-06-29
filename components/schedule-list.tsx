@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,38 @@ export function ScheduleList({
   const [when, setWhen] = useState<WhenFilter>("upcoming");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [pending, startTransition] = useTransition();
+
+  // Remember the last-used filters across visits. We hydrate from localStorage
+  // after mount (not in the initial state) so server and first client render
+  // match; then persist on every change.
+  const hydrated = useRef(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("schedule.filters") ?? "{}");
+      const validWho =
+        saved.who === "everyone" ||
+        saved.who === "mine" ||
+        (isAdmin && cleaners.some((c) => c.id === saved.who));
+      if (validWho) setWho(saved.who);
+      if (["upcoming", "historic", "all"].includes(saved.when)) setWhen(saved.when);
+      if (["all", "claimed", "unclaimed"].includes(saved.status)) setStatus(saved.status);
+    } catch {
+      // ignore malformed storage
+    }
+    hydrated.current = true;
+  }, [isAdmin, cleaners]);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    try {
+      localStorage.setItem(
+        "schedule.filters",
+        JSON.stringify({ who, when, status }),
+      );
+    } catch {
+      // storage unavailable — filters just won't persist
+    }
+  }, [who, when, status]);
 
   const visible = useMemo(
     () =>

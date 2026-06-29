@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Lora, Nunito } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -14,8 +14,16 @@ export const metadata: Metadata = {
   description: "Cleaning turnover schedule for the 357 Oasis Airbnb.",
 };
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Body + buttons (everything inherits this). Headings opt into `--font-display`
+// via the type-token rule in globals.css.
+const nunito = Nunito({
+  variable: "--font-sans",
+  display: "swap",
+  subsets: ["latin"],
+});
+// Headings only (the display/heading type tokens).
+const lora = Lora({
+  variable: "--font-display",
   display: "swap",
   subsets: ["latin"],
 });
@@ -26,8 +34,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
+    <html
+      lang="en"
+      className={`${nunito.variable} ${lora.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

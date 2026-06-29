@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { MobileNav } from "@/components/mobile-nav";
 import { ProfileMenu } from "@/components/profile-menu";
 import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
@@ -64,36 +65,32 @@ export async function SiteHeader() {
       ]
     : [];
 
+  // Secondary nav, collapsed behind a hamburger on phones; inline on desktop.
+  const navLinks = [
+    { href: "/schedule", label: "Schedule" },
+    ...(signedIn ? [{ href: "/linens", label: "Linens" }] : []),
+    ...adminLinks,
+  ];
+
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
-      <div className="mx-auto flex h-16 w-full max-w-2xl items-center justify-between gap-4 px-4">
-        <nav className="flex items-center gap-4">
-          <Link href="/" className="text-heading">
+      <div className="mx-auto flex h-16 w-full max-w-2xl items-center justify-between gap-3 px-4">
+        <nav className="flex min-w-0 items-center gap-4">
+          <MobileNav links={navLinks} />
+          <Link href="/" className="shrink-0 text-heading">
             357 Oasis Turnovers
           </Link>
-          <Link
-            href="/schedule"
-            className="text-caption text-muted-foreground hover:text-foreground"
-          >
-            Schedule
-          </Link>
-          {signedIn && (
-            <Link
-              href="/linens"
-              className="text-caption text-muted-foreground hover:text-foreground"
-            >
-              Linens
-            </Link>
-          )}
-          {adminLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="text-caption text-muted-foreground hover:text-foreground"
-            >
-              {l.label}
-            </Link>
-          ))}
+          <div className="hidden items-center gap-4 sm:flex">
+            {navLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="text-caption text-muted-foreground hover:text-foreground"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
         </nav>
         <div className="flex items-center gap-3">
           {signedIn && (

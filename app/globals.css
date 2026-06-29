@@ -111,6 +111,15 @@
   body {
     @apply bg-background text-foreground text-body;
   }
+  /*
+   * Headings use the display face (Lora); everything else inherits the body
+   * face (Nunito) from <body>. The two heading type tokens are the single hook,
+   * so headings get the right font without touching every call site.
+   */
+  .text-display,
+  .text-heading {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+  }
 }
 
 /*

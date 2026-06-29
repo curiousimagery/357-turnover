@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   notifyAdminsCompleted,
   notifyCleanerNote,
+  notifyManualCancelled,
   notifyPaid,
 } from "@/lib/notify/assignment";
 
@@ -154,7 +155,7 @@ export async function deleteTurnover(turnoverId: string): Promise<ActionResult> 
 
   const { data: t } = await supabase
     .from("turnovers")
-    .select("source")
+    .select("source, turnover_date")
     .eq("id", turnoverId)
     .maybeSingle();
   if (!t) return { ok: false, error: "Turnover not found." };
@@ -165,10 +166,27 @@ export async function deleteTurnover(turnoverId: string): Promise<ActionResult> 
     };
   }
 
-  const { error } = await createAdminClient()
-    .from("turnovers")
-    .delete()
-    .eq("id", turnoverId);
+  // Tell whoever was on it before it disappears — same as a cancellation.
+  const { data: assignment } = await supabase
+    .from("turnover_assignments")
+    .select("cleaner_id")
+    .eq("turnover_id", turnoverId)
+    .maybeSingle();
+  const cleanerId = assignment?.cleaner_id as string | undefined;
+
+  const admin = createAdminClient();
+  if (cleanerId) {
+    try {
+      await notifyManualCancelled(admin, {
+        date: t.turnover_date as string,
+        cleanerId,
+      });
+    } catch (e) {
+      console.error("manual-delete notice failed:", e);
+    }
+  }
+
+  const { error } = await admin.from("turnovers").delete().eq("id", turnoverId);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/schedule");
