@@ -11,7 +11,7 @@ import { formatNiceDate } from "@/lib/dates";
 import {
   addSupplyNote,
   resolveSupplyNote,
-} from "@/app/supplies/actions";
+} from "@/app/inventory/actions";
 
 export type SupplyNote = {
   id: string;

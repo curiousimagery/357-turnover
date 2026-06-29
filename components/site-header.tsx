@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { MobileNav } from "@/components/mobile-nav";
+import { AppMenu } from "@/components/app-menu";
 import { ProfileMenu } from "@/components/profile-menu";
 import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
@@ -59,15 +59,16 @@ export async function SiteHeader() {
     ? [
         { href: "/cleaners", label: "Cleaners" },
         { href: "/checklist", label: "Checklist" },
-        { href: "/supplies", label: "Supplies" },
         { href: "/test", label: "Test" },
         { href: "/style-guide", label: "Style Guide" },
       ]
     : [];
 
-  // Secondary nav, collapsed behind a hamburger on phones; inline on desktop.
+  // The full nav lives in the drawer (AppMenu). Inventory + Linens are for
+  // everyone; the admin-only pages follow.
   const navLinks = [
-    { href: "/schedule", label: "Schedule" },
+    { href: "/schedule", label: "Turnover Schedule" },
+    ...(signedIn ? [{ href: "/inventory", label: "Inventory" }] : []),
     ...(signedIn ? [{ href: "/linens", label: "Linens" }] : []),
     ...adminLinks,
   ];
@@ -75,24 +76,21 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
       <div className="mx-auto flex h-16 w-full max-w-2xl items-center justify-between gap-3 px-4">
-        <nav className="flex min-w-0 items-center gap-4">
-          <MobileNav links={navLinks} />
-          <Link href="/" className="shrink-0 text-heading">
+        <nav className="flex min-w-0 items-center gap-2">
+          {signedIn && profile && (
+            <AppMenu
+              name={profile.name}
+              color={profile.color}
+              email={profile.email}
+              unread={unread}
+              links={navLinks}
+            />
+          )}
+          <Link href="/schedule" className="truncate text-heading">
             357 Oasis Turnovers
           </Link>
-          <div className="hidden items-center gap-4 sm:flex">
-            {navLinks.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="text-caption text-muted-foreground hover:text-foreground"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {signedIn && (
             <Link
               href="/inbox"

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Lora, Nunito } from "next/font/google";
+import { Nunito, Nunito_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -16,13 +16,13 @@ export const metadata: Metadata = {
 
 // Body + buttons (everything inherits this). Headings opt into `--font-display`
 // via the type-token rule in globals.css.
-const nunito = Nunito({
+const nunitoSans = Nunito_Sans({
   variable: "--font-sans",
   display: "swap",
   subsets: ["latin"],
 });
 // Headings only (the display/heading type tokens).
-const lora = Lora({
+const nunito = Nunito({
   variable: "--font-display",
   display: "swap",
   subsets: ["latin"],
@@ -36,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${nunito.variable} ${lora.variable}`}
+      className={`${nunitoSans.variable} ${nunito.variable}`}
       suppressHydrationWarning
     >
       <body className="font-sans antialiased">

@@ -74,7 +74,8 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
   (nullable — admin can file a standalone note), `author_id`, `body`, `resolved`
   + `resolved_at`/`resolved_by`. Admin reads all + resolves; the assigned cleaner
   files/reads on their own turnover. Maintenance flags (5.8) fold in as just
-  another note. Surfaced per-turnover and on the admin `/supplies` board.
+  another note. Surfaced per-turnover and on the shared `/inventory` board
+  (everyone sees the list + can add ad-hoc; only the admin resolves).
 - **turnover_checklist_completions** _(branch)_ — persisted closeout ticks. PK
   `(turnover_id, item_id)` + `checked_by`/`checked_at`; unticking deletes the row.
   Admin + the assigned cleaner read/write their turnover's ticks.

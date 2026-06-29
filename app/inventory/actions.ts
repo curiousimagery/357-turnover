@@ -25,8 +25,10 @@ async function gateForTurnover(turnoverId: string | null) {
   const isAdmin = me?.role === "admin";
   if (isAdmin) return { ok: true as const, userId: user.id, isAdmin: true };
 
+  // A standalone note (not tied to a turnover) is the ad-hoc "running low" list
+  // anyone can add to. A turnover-scoped note still needs admin or the assignee.
   if (!turnoverId) {
-    return { ok: false as const, error: "Admins only." };
+    return { ok: true as const, userId: user.id, isAdmin: false };
   }
   const { data: assignment } = await supabase
     .from("turnover_assignments")
@@ -43,7 +45,7 @@ async function gateForTurnover(turnoverId: string | null) {
 }
 
 /** File a "running low" note. Tied to a turnover (cleaner at closeout / admin on a
- *  turnover page) or standalone (admin from /supplies). */
+ *  turnover page) or standalone (anyone, ad-hoc, from /inventory). */
 export async function addSupplyNote(input: {
   turnoverId: string | null;
   body: string;
@@ -62,7 +64,7 @@ export async function addSupplyNote(input: {
   if (error) return { ok: false, error: error.message };
 
   if (input.turnoverId) revalidatePath(`/turnover/${input.turnoverId}`);
-  revalidatePath("/supplies");
+  revalidatePath("/inventory");
   return { ok: true };
 }
 
@@ -93,7 +95,7 @@ export async function resolveSupplyNote(
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/supplies");
+  revalidatePath("/inventory");
   revalidatePath("/schedule");
   return { ok: true };
 }
@@ -118,6 +120,6 @@ export async function deleteSupplyNote(id: string): Promise<ActionResult> {
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/supplies");
+  revalidatePath("/inventory");
   return { ok: true };
 }

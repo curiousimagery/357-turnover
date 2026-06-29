@@ -73,7 +73,7 @@ invites + email change.)
    turnover's payment card (set amount → Mark paid → cleaner sees only their own).
 6. **Supplies + closeout ticks:** on a claimed turnover, tick a checklist item →
    reload → it stays ticked; Mark complete with "Anything running low?" filled →
-   confirm it shows in the turnover's Supplies card **and** on `/supplies`, then
+   confirm it shows in the turnover's Inventory card **and** on `/inventory`, then
    "Mark restocked." Also check `/test/emails` renders all the copy.
 
 ---

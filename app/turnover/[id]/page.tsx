@@ -332,9 +332,9 @@ export default async function TurnoverDetailPage({
 
         <Card className="flex flex-col gap-4 p-6">
           <div className="flex flex-col gap-1">
-            <h2 className="text-heading">Supplies</h2>
+            <h2 className="text-heading">Inventory</h2>
             <p className="text-caption text-muted-foreground">
-              Flag anything running low — it goes on Daniel&apos;s supply list.
+              Flag anything running low — it shows up on the Inventory list.
             </p>
           </div>
           <SupplyNotes

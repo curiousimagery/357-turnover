@@ -113,7 +113,8 @@ for historic turnovers. Mostly relaxing the `.gte` filter + the picker UI.
 The last un-built feature from the original plan. Built as designed:
 `supply_notes` table (nullable `turnover_id` so the admin can file standalone
 notes), a closeout "Anything running low?" prompt, a per-turnover **Supplies**
-card (add + admin resolve), and the unified admin **`/supplies`** board (open
+card (add + admin resolve), and the unified **`/inventory`** board — shared with
+cleaners, who see the whole list and can add ad-hoc; only the admin resolves (open
 flags up top with "mark restocked", restocked below). Maintenance flags (5.8)
 fold in as just another note. _Pending hosted migration — see `docs/GO_LIVE.md`._
 

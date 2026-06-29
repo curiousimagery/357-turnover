@@ -13,7 +13,7 @@ import {
   addSupplyNote,
   resolveSupplyNote,
   deleteSupplyNote,
-} from "@/app/supplies/actions";
+} from "@/app/inventory/actions";
 
 export type BoardNote = {
   id: string;
@@ -41,9 +41,16 @@ function Meta({ n }: { n: BoardNote }) {
   );
 }
 
-/** Admin shopping-list view of every "running low" flag across turnovers: the
- *  open ones up top (with restock + a standalone add), restocked ones below. */
-export function SuppliesBoard({ notes }: { notes: BoardNote[] }) {
+/** The shared "running low" list across turnovers: open ones up top (anyone can
+ *  add a standalone note; only the admin marks them restocked), restocked below.
+ *  Cleaners see everything but get no admin controls. */
+export function SuppliesBoard({
+  notes,
+  isAdmin,
+}: {
+  notes: BoardNote[];
+  isAdmin: boolean;
+}) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [pending, startTransition] = useTransition();
@@ -90,8 +97,8 @@ export function SuppliesBoard({ notes }: { notes: BoardNote[] }) {
         <div className="flex flex-col gap-1">
           <h2 className="text-heading">Running low ({open.length})</h2>
           <p className="text-caption text-muted-foreground">
-            Everything flagged by you or a cleaner. Mark restocked once you&apos;ve
-            replaced it.
+            Everything flagged as running low across turnovers.
+            {isAdmin && " Mark restocked once you've replaced it."}
           </p>
         </div>
         {open.length === 0 ? (
@@ -109,14 +116,16 @@ export function SuppliesBoard({ notes }: { notes: BoardNote[] }) {
                   <p className="whitespace-pre-wrap text-body text-foreground">{n.body}</p>
                   <Meta n={n} />
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={pending}
-                  onClick={() => resolve(n.id, true)}
-                >
-                  Mark restocked
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => resolve(n.id, true)}
+                  >
+                    Mark restocked
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -127,8 +136,8 @@ export function SuppliesBoard({ notes }: { notes: BoardNote[] }) {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             className="text-body"
-            placeholder="Add something to restock (not tied to a turnover)…"
-            aria-label="Add a supply note"
+            placeholder="Add something running low…"
+            aria-label="Add a running-low note"
           />
           <div>
             <Button size="touch" variant="outline" disabled={pending || !body.trim()} onClick={add}>
@@ -149,24 +158,26 @@ export function SuppliesBoard({ notes }: { notes: BoardNote[] }) {
                 </p>
                 <Meta n={n} />
               </div>
-              <div className="flex shrink-0 gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={() => resolve(n.id, false)}
-                >
-                  Reopen
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={() => remove(n.id)}
-                >
-                  Delete
-                </Button>
-              </div>
+              {isAdmin && (
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => resolve(n.id, false)}
+                  >
+                    Reopen
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => remove(n.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </Card>
