@@ -55,3 +55,49 @@ Sent rows flip to `status='sent'` in `notifications` and won't resend.
 
 > Note: a failed send marks that row `failed` (no auto-retry yet). The in-app
 > inbox still shows it, so nothing is lost. Retry/backoff is a backlog item.
+
+## 5. Custom SMTP — route Supabase's auth emails through Resend
+
+By default Supabase sends the **sign-in / invite / email-change** emails from its
+own service ("Supabase Auth", generic copy, a low hourly rate limit). Pointing
+Supabase at Resend over SMTP fixes all of it at once: a branded sender on your
+domain, no built-in rate limit, and one provider for every email the app sends.
+
+### a. SMTP credentials from Resend
+
+Resend → **API Keys** → create (or reuse) a key. The SMTP settings are:
+
+| Field | Value |
+| --- | --- |
+| Host | `smtp.resend.com` |
+| Port | `587` (STARTTLS) |
+| Username | `resend` |
+| Password | your `re_…` API key |
+
+### b. Enable custom SMTP in Supabase
+
+Supabase → **Project Settings → Authentication → SMTP Settings** → toggle on
+**Custom SMTP** and fill in:
+
+- **Sender email:** `noreply@mail.curiousimagery.com` (must be on the verified domain)
+- **Sender name:** `357 Oasis Turnovers`
+- **Host:** `smtp.resend.com` · **Port:** `587` · **Username:** `resend` ·
+  **Password:** the `re_…` key
+
+Save, then invite yourself — the email should now arrive **from your domain**, and
+the magic-link rate limit is gone.
+
+### c. Raise the rate limit (optional)
+
+Supabase → **Authentication → Rate Limits** → bump "emails per hour" now that
+Resend (not the built-in service) does the sending.
+
+### d. Brand the copy (separate, optional)
+
+SMTP fixes the *sender*; the email *wording* stays the default template until you
+paste the custom copy — see `docs/AUTH_EMAIL_SETUP.md` (drafts in
+`lib/notify/external-emails.ts`, previewed on `/test/emails`).
+
+> **Site URL:** confirm Authentication → URL Configuration → Site URL is
+> `https://turnover.curiousimagery.com` (and that it's in Redirect URLs), or the
+> links still point at `localhost`.
