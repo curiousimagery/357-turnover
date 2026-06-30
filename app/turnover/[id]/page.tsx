@@ -151,6 +151,9 @@ export default async function TurnoverDetailPage({
     { data: cleanerRows },
     { data: completions },
     { data: supplyRows },
+    { data: linenTypeRows },
+    { data: turnoverLinenRows },
+    { data: holderRows },
   ] = await Promise.all([
     supabase
       .from("checklist_items")
@@ -189,6 +192,20 @@ export default async function TurnoverDetailPage({
       .select("id, body, created_at, resolved, author_id")
       .eq("turnover_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("linen_types")
+      .select("id, kind, label")
+      .order("kind", { ascending: true })
+      .order("label", { ascending: true }),
+    supabase
+      .from("turnover_linens")
+      .select("bed, sheet_type_id, duvet_type_id")
+      .eq("turnover_id", id),
+    supabase
+      .from("profiles")
+      .select("id, display_name")
+      .eq("active", true)
+      .order("display_name", { ascending: true }),
   ]);
 
   const checkedItems: Record<string, boolean> = Object.fromEntries(
@@ -271,6 +288,25 @@ export default async function TurnoverDetailPage({
   const latestFeedback = feedbackList[0];
   const initialCleanliness = latestFeedback?.cleanliness ?? 0;
   const initialNote = latestFeedback?.note ?? "";
+
+  // Linen closeout step: the inventory to pick from, who can take the wash
+  // (cleaners + admin), the default holder (the assignee), and any record already
+  // saved on this turnover (so an edit pre-fills).
+  const linenTypes = (linenTypeRows ?? []).map((t) => ({
+    id: t.id as string,
+    kind: t.kind as string,
+    label: t.label as string,
+  }));
+  const holders = (holderRows ?? []).map((p) => ({
+    id: p.id as string,
+    name: p.display_name as string,
+  }));
+  const initialBeds = (turnoverLinenRows ?? []).map((r) => ({
+    bed: r.bed as number,
+    sheetTypeId: (r.sheet_type_id as string | null) ?? null,
+    duvetTypeId: (r.duvet_type_id as string | null) ?? null,
+  }));
+  const defaultHolderId = assignment?.cleaner_id ?? null;
 
   const isActive = status === "scheduled";
 
@@ -356,6 +392,10 @@ export default async function TurnoverDetailPage({
               initialCleanliness={initialCleanliness}
               initialNote={initialNote}
               existingSupplyNotes={supplyNotes}
+              linenTypes={linenTypes}
+              holders={holders}
+              defaultHolderId={defaultHolderId}
+              initialBeds={initialBeds}
             />
           </Card>
         )}
@@ -422,6 +462,10 @@ export default async function TurnoverDetailPage({
                   initialCleanliness={initialCleanliness}
                   initialNote={initialNote}
                   existingSupplyNotes={supplyNotes}
+                  linenTypes={linenTypes}
+                  holders={holders}
+                  defaultHolderId={defaultHolderId}
+                  initialBeds={initialBeds}
                 />
               ) : (
                 <>

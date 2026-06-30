@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { onBedsByType } from "@/lib/linens/derive";
 import {
   notifyAdminsCompleted,
   notifyCleanerNote,
@@ -332,6 +333,103 @@ export async function saveCloseout(input: {
   }
 
   revalidatePath(`/turnover/${input.turnoverId}`);
+  return { ok: true };
+}
+
+/**
+ * Record which sheet + duvet type is now on each of the 2 beds at closeout, and
+ * — the first time a turnover records linens — move the sets that *were* on the
+ * beds (the previous turnover's record) into the chosen holder's `linen_holdings`
+ * (the wash they're taking). The strip→holdings move fires only on the first save
+ * so editing later never double-counts the wash. Gated to admin or the assignee.
+ */
+export async function saveTurnoverLinens(input: {
+  turnoverId: string;
+  beds: { bed: number; sheetTypeId: string | null; duvetTypeId: string | null }[];
+  holderId: string | null;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const { isAdmin, isAssigned } = await adminOrAssigned(supabase, user.id, input.turnoverId);
+  if (!isAdmin && !isAssigned) {
+    return { ok: false, error: "Only the assigned cleaner or an admin can record linens." };
+  }
+
+  const admin = createAdminClient();
+
+  // Has this turnover recorded linens before? The strip→holdings move only fires
+  // on the first save, so a later edit doesn't double-count the wash.
+  const { data: existing } = await admin
+    .from("turnover_linens")
+    .select("bed")
+    .eq("turnover_id", input.turnoverId);
+  const firstSave = (existing ?? []).length === 0;
+
+  if (firstSave && input.holderId) {
+    // The sets that were on the beds (the most recent other turnover's record)
+    // come off and go with whoever's washing.
+    const { data: latest } = await admin
+      .from("turnover_linens")
+      .select("turnover_id")
+      .neq("turnover_id", input.turnoverId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const prevTurnoverId = latest?.turnover_id as string | undefined;
+    if (prevTurnoverId) {
+      const { data: prevRows } = await admin
+        .from("turnover_linens")
+        .select("bed, sheet_type_id, duvet_type_id")
+        .eq("turnover_id", prevTurnoverId);
+      const prevOnBeds = onBedsByType(
+        (prevRows ?? []).map((r) => ({
+          bed: r.bed as number,
+          sheetTypeId: (r.sheet_type_id as string | null) ?? null,
+          duvetTypeId: (r.duvet_type_id as string | null) ?? null,
+        })),
+      );
+      for (const [typeId, addQty] of prevOnBeds) {
+        const { data: held } = await admin
+          .from("linen_holdings")
+          .select("qty")
+          .eq("type_id", typeId)
+          .eq("holder_id", input.holderId)
+          .maybeSingle();
+        const qty = ((held?.qty as number | undefined) ?? 0) + addQty;
+        const { error } = await admin
+          .from("linen_holdings")
+          .upsert(
+            { type_id: typeId, holder_id: input.holderId, qty },
+            { onConflict: "type_id,holder_id" },
+          );
+        if (error) return { ok: false, error: error.message };
+      }
+    }
+  }
+
+  // Record what's on each bed now. A bed with no selection is left out rather
+  // than stored empty.
+  const rows = input.beds
+    .filter((b) => (b.bed === 1 || b.bed === 2) && (b.sheetTypeId || b.duvetTypeId))
+    .map((b) => ({
+      turnover_id: input.turnoverId,
+      bed: b.bed,
+      sheet_type_id: b.sheetTypeId,
+      duvet_type_id: b.duvetTypeId,
+    }));
+  if (rows.length > 0) {
+    const { error } = await admin
+      .from("turnover_linens")
+      .upsert(rows, { onConflict: "turnover_id,bed" });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath(`/turnover/${input.turnoverId}`);
+  revalidatePath("/linens");
   return { ok: true };
 }
 

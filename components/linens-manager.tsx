@@ -7,49 +7,34 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  addLinenSet,
-  deleteLinenSet,
-  updateLinen,
+  addLinenType,
+  deleteLinenType,
+  restockHolder,
+  updateLinenType,
   type ActionResult,
 } from "@/app/linens/actions";
+import type { LinenLocation } from "@/lib/linens/derive";
 
-export type LinenSet = {
-  id: string;
-  kind: string;
-  label: string;
-  state: string;
-  heldById: string | null;
-};
-type Cleaner = { id: string; name: string };
-
-const STATES = [
-  { value: "on_beds", label: "On beds" },
-  { value: "clean_backup", label: "Clean backup" },
-  { value: "with_cleaner", label: "With cleaner" },
-  { value: "in_wash", label: "In wash" },
-];
 const KIND_LABEL: Record<string, string> = {
   sheet_set: "Sheet set",
   duvet_set: "Duvet set",
 };
-const LOW_STOCK = 2;
-const smallSelect =
-  "h-10 rounded-md border border-input bg-background px-2 text-caption";
-const bigSelect =
-  "h-14 rounded-md border border-input bg-background px-3 text-body";
+const bigSelect = "h-14 rounded-md border border-input bg-background px-3 text-body";
 
 export function LinensManager({
-  sets,
-  cleaners,
+  locations,
   isAdmin,
+  currentUserId,
 }: {
-  sets: LinenSet[];
-  cleaners: Cleaner[];
+  locations: LinenLocation[];
   isAdmin: boolean;
+  currentUserId: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState("sheet_set");
   const [label, setLabel] = useState("");
+  const [count, setCount] = useState("1");
+  const [editing, setEditing] = useState<string | null>(null);
 
   function run(fn: () => Promise<ActionResult>, ok: string) {
     startTransition(async () => {
@@ -62,53 +47,35 @@ export function LinensManager({
   function add(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await addLinenSet({ kind, label });
+      const result = await addLinenType({ kind, label, count: Number(count) });
       if (result.ok) {
-        toast.success("Set added");
+        toast.success("Type added");
         setLabel("");
+        setCount("1");
       } else {
         toast.error(result.error);
       }
     });
   }
 
-  // Low-stock is per interchangeable group (kind + label): "White IKEA queen" is
-  // counted separately from "Sand percale Quince" — they don't substitute.
-  const groups = new Map<string, { kind: string; label: string; backups: number }>();
-  for (const s of sets) {
-    const key = `${s.kind}|${s.label}`;
-    const g = groups.get(key) ?? { kind: s.kind, label: s.label, backups: 0 };
-    if (s.state === "clean_backup") g.backups += 1;
-    groups.set(key, g);
+  // Who currently has linens out, for the restock control.
+  const outByHolder = new Map<string, { name: string; items: { label: string; qty: number }[] }>();
+  for (const loc of locations) {
+    for (const h of loc.holders) {
+      const entry = outByHolder.get(h.holderId) ?? { name: h.holderName, items: [] };
+      entry.items.push({ label: loc.type.label, qty: h.qty });
+      outByHolder.set(h.holderId, entry);
+    }
   }
-  const warnings = [...groups.values()]
-    .filter((g) => g.backups < LOW_STOCK)
-    .map(
-      (g) =>
-        `Only ${g.backups} clean ${g.label} ${KIND_LABEL[g.kind].toLowerCase()} backup${g.backups === 1 ? "" : "s"} left.`,
-    );
+  const holdersOut = [...outByHolder.entries()];
 
   return (
     <div className="flex flex-col gap-8">
-      {warnings.length > 0 && (
-        <Card className="flex flex-col gap-1 border-warning p-4">
-          {warnings.map((w, i) => (
-            <p key={i} className="text-body text-foreground">
-              ⚠️ {w}
-            </p>
-          ))}
-        </Card>
-      )}
-
       {isAdmin && (
         <Card className="flex flex-col gap-4 p-6">
-          <h2 className="text-heading">Add a set</h2>
+          <h2 className="text-heading">Add a type</h2>
           <form onSubmit={add} className="flex flex-col gap-3">
-            <select
-              className={bigSelect}
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-            >
+            <select className={bigSelect} value={kind} onChange={(e) => setKind(e.target.value)}>
               <option value="sheet_set">Sheet set</option>
               <option value="duvet_set">Duvet set</option>
             </select>
@@ -117,22 +84,22 @@ export function LinensManager({
               onChange={(e) => setLabel(e.target.value)}
               className="h-14 text-body"
               placeholder={
-                kind === "duvet_set"
-                  ? "Label (e.g. Terracotta linen)"
-                  : "Label (e.g. White IKEA queen)"
+                kind === "duvet_set" ? "Label (e.g. Terracotta linen)" : "Label (e.g. White IKEA queen)"
               }
             />
-            <p className="text-caption text-muted-foreground">
-              Name the look so matching sets share a label — add one row per
-              physical set (e.g. four “White IKEA queen”).
-            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                value={count}
+                onChange={(e) => setCount(e.target.value)}
+                className="h-14 w-24 text-body"
+              />
+              <span className="text-caption text-muted-foreground">how many we own</span>
+            </div>
             <div>
-              <Button
-                type="submit"
-                size="touch"
-                disabled={pending || !label.trim()}
-              >
-                Add set
+              <Button type="submit" size="touch" disabled={pending || !label.trim()}>
+                Add type
               </Button>
             </div>
           </form>
@@ -140,93 +107,165 @@ export function LinensManager({
       )}
 
       <Card className="flex flex-col">
-        {sets.length === 0 ? (
-          <p className="p-6 text-caption text-muted-foreground">
-            No linen sets yet.
-          </p>
+        {locations.length === 0 ? (
+          <p className="p-6 text-caption text-muted-foreground">No linen types yet.</p>
         ) : (
-          sets.map((s, i) => (
-            <div
-              key={s.id}
-              className={i > 0 ? "border-t border-border" : ""}
-            >
-              <div className="flex flex-col gap-3 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-col">
-                    <span className="text-body font-semibold text-foreground">
-                      {s.label}
-                    </span>
-                    <span className="text-caption text-muted-foreground">
-                      {KIND_LABEL[s.kind]}
-                    </span>
+          locations.map((loc, i) => (
+            <div key={loc.type.id} className={i > 0 ? "border-t border-border" : ""}>
+              {editing === loc.type.id ? (
+                <EditRow
+                  loc={loc}
+                  pending={pending}
+                  onCancel={() => setEditing(null)}
+                  onSave={(label, count) =>
+                    startTransition(async () => {
+                      const result = await updateLinenType(loc.type.id, { label, count });
+                      if (result.ok) {
+                        toast.success("Saved");
+                        setEditing(null);
+                      } else {
+                        toast.error(result.error);
+                      }
+                    })
+                  }
+                  onRemove={() => {
+                    if (window.confirm(`Remove “${loc.type.label}”?`)) {
+                      run(() => deleteLinenType(loc.type.id), "Removed");
+                      setEditing(null);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="flex items-start justify-between gap-3 p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-body font-semibold text-foreground">
+                        {loc.type.label}
+                      </span>
+                      <span className="text-caption text-muted-foreground">
+                        {KIND_LABEL[loc.type.kind]} · {loc.type.count} owned
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 text-caption text-muted-foreground">
+                      <span>On beds: {loc.onBeds}</span>
+                      <span>
+                        With cleaner: {loc.withCleaner}
+                        {loc.holders.length > 0 && (
+                          <> ({loc.holders.map((h) => `${h.holderName} ${h.qty}`).join(", ")})</>
+                        )}
+                      </span>
+                      <span>Closet: {loc.closet}</span>
+                    </div>
                   </div>
                   {isAdmin && (
                     <Button
                       size="sm"
                       variant="ghost"
                       disabled={pending}
-                      onClick={() => {
-                        if (window.confirm(`Remove “${s.label}”?`)) {
-                          run(() => deleteLinenSet(s.id), "Removed");
-                        }
-                      }}
+                      onClick={() => setEditing(loc.type.id)}
                     >
-                      Remove
+                      Edit
                     </Button>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    className={smallSelect}
-                    value={s.state}
-                    disabled={pending}
-                    onChange={(e) =>
-                      run(
-                        () =>
-                          updateLinen(s.id, {
-                            state: e.target.value,
-                            heldBy: s.heldById,
-                          }),
-                        "Updated",
-                      )
-                    }
-                  >
-                    {STATES.map((st) => (
-                      <option key={st.value} value={st.value}>
-                        {st.label}
-                      </option>
-                    ))}
-                  </select>
-                  {(s.state === "with_cleaner" || s.state === "in_wash") && (
-                    <select
-                      className={smallSelect}
-                      value={s.heldById ?? ""}
-                      disabled={pending}
-                      onChange={(e) =>
-                        run(
-                          () =>
-                            updateLinen(s.id, {
-                              state: s.state,
-                              heldBy: e.target.value || null,
-                            }),
-                          "Updated",
-                        )
-                      }
-                    >
-                      <option value="">— holder —</option>
-                      {cleaners.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           ))
         )}
       </Card>
+
+      {holdersOut.length > 0 && (
+        <Card className="flex flex-col gap-4 p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-heading">Out to wash</h2>
+            <p className="text-caption text-muted-foreground">
+              Mark linens returned once they’re back in the closet.
+            </p>
+          </div>
+          {holdersOut.map(([holderId, entry]) => {
+            const canReturn = isAdmin || holderId === currentUserId;
+            return (
+              <div key={holderId} className="flex items-start justify-between gap-3">
+                <div className="flex flex-col">
+                  <span className="text-body font-semibold text-foreground">{entry.name}</span>
+                  <span className="text-caption text-muted-foreground">
+                    {entry.items.map((it) => `${it.qty} ${it.label}`).join(", ")}
+                  </span>
+                </div>
+                {canReturn && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => run(() => restockHolder(holderId), "Returned to closet")}
+                  >
+                    Returned to closet
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/** Inline edit of a type's label + owned count (admin). */
+function EditRow({
+  loc,
+  pending,
+  onCancel,
+  onSave,
+  onRemove,
+}: {
+  loc: LinenLocation;
+  pending: boolean;
+  onCancel: () => void;
+  onSave: (label: string, count: number) => void;
+  onRemove: () => void;
+}) {
+  const [label, setLabel] = useState(loc.type.label);
+  const [count, setCount] = useState(String(loc.type.count));
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <Input
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        className="h-12 text-body"
+      />
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={0}
+          value={count}
+          onChange={(e) => setCount(e.target.value)}
+          className="h-12 w-24 text-body"
+        />
+        <span className="text-caption text-muted-foreground">owned</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          disabled={pending || !label.trim()}
+          onClick={() => onSave(label, Number(count))}
+        >
+          Save
+        </Button>
+        <Button size="sm" variant="ghost" disabled={pending} onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={onRemove}
+          className="text-destructive"
+        >
+          Remove
+        </Button>
+      </div>
     </div>
   );
 }

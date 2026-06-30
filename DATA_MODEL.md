@@ -29,7 +29,10 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
   closeout cheat sheets) `…020000`; `guest_feedback` `…050000`. **Cleaner notes
   are not a table** — they're `notifications` rows with `type='cleaner_note'`.
 - **Merged to `main` (Phases 5–6), pending hosted migration:** `payments` +
-  `cleaner_rates` (`…060000`); `linen_sets` (`…070000`).
+  `cleaner_rates` (`…060000`). (`linen_sets` `…070000` shipped then was replaced —
+  see the linen redesign `…20260630000000` below.)
+- **Linen redesign, pending hosted migration:** `linen_types` / `turnover_linens`
+  / `linen_holdings` (`…20260630000000`) — drops `linen_sets`.
 - **On `supplies-and-copy` branch, pending hosted migration:** `supply_notes`
   (running-low flags, spec 5.7–5.8) `…20260628000000`;
   `turnover_checklist_completions` (persisted closeout ticks) `…20260628010000`.
@@ -85,12 +88,20 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
   `amount`, `paid_at`. Admin writes; admin + owning cleaner read (private amounts).
 - **cleaner_rates** _(P6, phase-5-6)_ — `cleaner_id` (PK), `default_rate`. Its
   own table (not `profiles`, which is world-readable) so rates stay private.
-- **linen_sets** _(P5, phase-5-6)_ — individual sheet/duvet sets, described by
-  just `kind` (`sheet_set`|`duvet_set`) + `label` (not null) — the label is the
-  interchangeable group (e.g. four "White IKEA queen" sets), with color/brand
-  baked into it. `state` (`on_beds`|`with_cleaner`|`clean_backup`|`in_wash`),
-  `held_by`. Everyone reads + moves state/holder; only admins add/remove.
-  (`color`/`brand`/`notes` columns dropped — `…20260628020000`.)
+- **Linens** _(redesign `…20260630000000`, replaces `linen_sets`)_ — count-based
+  inventory whose locations are **derived** (see `lib/linens/derive.ts`), so they
+  always reconcile to the owned count; no low-stock warnings. Three tables:
+  - **linen_types** — the inventory: `kind` (`sheet_set`|`duvet_set`), `label`,
+    `count` (how many owned). Admin CRUD; everyone reads.
+  - **turnover_linens** — the closeout record: one row per `(turnover_id, bed)`
+    (`bed` ∈ {1,2}), with `sheet_type_id` / `duvet_type_id` (→ `linen_types`, null
+    on type delete so history survives). The most-recent turnover's rows = current
+    "on beds". Admin + the assigned cleaner write (via service role after gating).
+  - **linen_holdings** — what each person has out to wash, aggregated per
+    `unique(type_id, holder_id)` as `qty`. The closeout strip-move adds to it;
+    restock clears a holder's rows. Everyone reads; a holder (or admin) clears.
+  - Derived per type: `on_beds` (latest `turnover_linens`), `with_cleaner` (sum of
+    holdings, grouped by holder), `closet` = `count − on_beds − with_cleaner`.
 - **sync_runs** / **sync_state** _(P1)_ — sync observability + heartbeat
   (`last_synced_at`, `last_success_at`), backing `/api/health`.
 
@@ -119,8 +130,12 @@ spec's Section 4.1 sketch in a few places (noted inline). Source of truth is
 | payments                      | write (mark paid / amount)     | Y     |                   |
 | cleaner_rates                 | read                           | Y     | own               |
 | cleaner_rates                 | write                          | Y     |                   |
-| linen_sets                    | read / move state              | Y     | Y                 |
-| linen_sets                    | add / remove sets              | Y     |                   |
+| linen_types                   | read                           | Y     | Y                 |
+| linen_types                   | add / edit / remove            | Y     |                   |
+| turnover_linens               | read                           | Y     | Y                 |
+| turnover_linens               | record (at closeout)           | Y     | own (if assigned) |
+| linen_holdings                | read                           | Y     | Y                 |
+| linen_holdings                | restock (clear)                | Y     | own (holder)      |
 | notifications                 | read / mark read / archive     | own   | own               |
 | notification_preferences      | read / update                  | own   | own               |
 

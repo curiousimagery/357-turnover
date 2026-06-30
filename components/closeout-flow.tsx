@@ -12,9 +12,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { WhatWeStockDialog } from "@/components/what-we-stock-dialog";
 import type { SupplyNote } from "@/components/supply-notes";
-import { completeTurnover, saveCloseout, setChecklistItem } from "@/app/turnover/actions";
+import {
+  completeTurnover,
+  saveCloseout,
+  saveTurnoverLinens,
+  setChecklistItem,
+} from "@/app/turnover/actions";
 
 type Item = { id: string; name: string; description: string; helper: string | null };
+type LinenType = { id: string; kind: string; label: string };
+type Holder = { id: string; name: string };
+type BedLinen = { bed: number; sheetTypeId: string | null; duvetTypeId: string | null };
+
+const selectClass = "h-12 rounded-md border border-input bg-background px-2 text-body";
 
 /**
  * The whole closeout, flat on the page (no modal): rate the guest, leave
@@ -32,6 +42,10 @@ export function CloseoutFlow({
   initialCleanliness = 0,
   initialNote = "",
   existingSupplyNotes = [],
+  linenTypes = [],
+  holders = [],
+  defaultHolderId = null,
+  initialBeds = [],
 }: {
   turnoverId: string;
   items: Item[];
@@ -41,12 +55,29 @@ export function CloseoutFlow({
   initialCleanliness?: number;
   initialNote?: string;
   existingSupplyNotes?: SupplyNote[];
+  linenTypes?: LinenType[];
+  holders?: Holder[];
+  defaultHolderId?: string | null;
+  initialBeds?: BedLinen[];
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState<Record<string, boolean>>(initialChecked);
   const [cleanliness, setCleanliness] = useState(initialCleanliness);
   const [note, setNote] = useState(initialNote);
   const [supplyNote, setSupplyNote] = useState("");
+  const [beds, setBeds] = useState<Record<number, { sheet: string; duvet: string }>>(() => {
+    const init: Record<number, { sheet: string; duvet: string }> = {
+      1: { sheet: "", duvet: "" },
+      2: { sheet: "", duvet: "" },
+    };
+    for (const b of initialBeds) {
+      if (b.bed === 1 || b.bed === 2) {
+        init[b.bed] = { sheet: b.sheetTypeId ?? "", duvet: b.duvetTypeId ?? "" };
+      }
+    }
+    return init;
+  });
+  const [holderId, setHolderId] = useState(defaultHolderId ?? "");
   const [pending, startTransition] = useTransition();
 
   const isEdit = mode === "edit";
@@ -54,6 +85,10 @@ export function CloseoutFlow({
   const ready = checkedCount >= 1 && note.trim().length > 0;
   const nudge =
     "Tick at least one “before you leave” item and add guest feedback before marking complete.";
+
+  const sheetTypes = linenTypes.filter((t) => t.kind === "sheet_set");
+  const duvetTypes = linenTypes.filter((t) => t.kind === "duvet_set");
+  const hasLinenSelection = [1, 2].some((b) => beds[b].sheet || beds[b].duvet);
 
   function toggle(id: string, v: boolean) {
     setChecked((c) => ({ ...c, [id]: v }));
@@ -67,41 +102,35 @@ export function CloseoutFlow({
   }
 
   function submit() {
-    if (isEdit) {
-      startTransition(async () => {
-        const result = await saveCloseout({
-          turnoverId,
-          cleanliness: cleanliness || null,
-          note,
-          supplyNote,
-        });
-        if (result.ok) {
-          toast.success("Changes saved");
-          setSupplyNote("");
-          router.refresh();
-        } else {
-          toast.error(result.error);
-        }
-      });
-      return;
-    }
-    if (!ready) {
+    if (!isEdit && !ready) {
       toast.error(nudge);
       return;
     }
     startTransition(async () => {
-      const result = await completeTurnover({
-        turnoverId,
-        cleanliness: cleanliness || null,
-        note,
-        supplyNote,
-      });
-      if (result.ok) {
-        toast.success("Turnover marked complete");
-        router.refresh();
-      } else {
-        toast.error(result.error);
+      const main = isEdit
+        ? await saveCloseout({ turnoverId, cleanliness: cleanliness || null, note, supplyNote })
+        : await completeTurnover({ turnoverId, cleanliness: cleanliness || null, note, supplyNote });
+      if (!main.ok) {
+        toast.error(main.error);
+        return;
       }
+      // Linens are secondary to the completion itself — a failure here is surfaced
+      // but doesn't undo the save (matches "the schedule is authoritative").
+      if (linenTypes.length > 0 && hasLinenSelection) {
+        const lin = await saveTurnoverLinens({
+          turnoverId,
+          beds: [1, 2].map((bed) => ({
+            bed,
+            sheetTypeId: beds[bed].sheet || null,
+            duvetTypeId: beds[bed].duvet || null,
+          })),
+          holderId: holderId || null,
+        });
+        if (!lin.ok) toast.error(`Saved, but linens didn’t record: ${lin.error}`);
+      }
+      toast.success(isEdit ? "Changes saved" : "Turnover marked complete");
+      if (isEdit) setSupplyNote("");
+      router.refresh();
     });
   }
 
@@ -173,6 +202,68 @@ export function CloseoutFlow({
           ))
         )}
       </div>
+
+      {linenTypes.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+            <Label>Fresh linens on the beds</Label>
+            <span className="text-caption text-muted-foreground">
+              What you just put on. The set you stripped goes with whoever’s washing.
+            </span>
+          </div>
+          {[1, 2].map((bed) => (
+            <div key={bed} className="flex flex-col gap-1">
+              <span className="text-caption font-semibold text-foreground">Bed {bed}</span>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  className={selectClass}
+                  value={beds[bed].sheet}
+                  onChange={(e) =>
+                    setBeds((b) => ({ ...b, [bed]: { ...b[bed], sheet: e.target.value } }))
+                  }
+                >
+                  <option value="">Sheet set…</option>
+                  {sheetTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className={selectClass}
+                  value={beds[bed].duvet}
+                  onChange={(e) =>
+                    setBeds((b) => ({ ...b, [bed]: { ...b[bed], duvet: e.target.value } }))
+                  }
+                >
+                  <option value="">Duvet set…</option>
+                  {duvetTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ))}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="laundry-holder">Who’s taking the laundry to wash?</Label>
+            <select
+              id="laundry-holder"
+              className={selectClass}
+              value={holderId}
+              onChange={(e) => setHolderId(e.target.value)}
+            >
+              <option value="">No one / not sure</option>
+              {holders.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
