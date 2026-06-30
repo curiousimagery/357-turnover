@@ -22,23 +22,39 @@ deferred features and enhancements.
 - **Whole schedule card clickable — DONE** (this commit): stretched link over the
   card + a subtle hover; the CTA buttons stay above it.
 
-- **Linen subsystem redesign — TODO (needs migration + UI).** The current
-  one-row-per-set + state machine (`linen_sets`, on_beds/with_cleaner/clean_backup/
-  in_wash) doesn't match how it's used. Desired model:
-  - **Count-based inventory:** the admin defines linen *types* with a **count**
-    (e.g. ×5 white cotton sheet sets, ×3 blue linen duvet covers) — not one row
-    each. Likely `linen_types(id, kind, label, count)`; drop the per-set state.
-  - **Two locations only:** on the beds vs. in the cleaning-closet storage.
-    **Remove the "in wash" status.**
-  - **Closeout step:** after a turnover is started, ask the cleaner **which linen
-    sets they put on the beds and which they stored** — shown alongside the
-    "anything running low?" note. Persist per turnover (who/what/when).
-  - **Fix `/linens` UX:** let the admin set counts (today it only adds one of each)
-    and kill the bogus low-stock warnings (e.g. "Only 1 clean Sage Green Linen
-    duvet set backup left" when there's exactly one). Re-derive low-stock from the
-    count model, or drop it.
-  - Dedicated build: migration(s) for `linen_types` (+ a per-turnover linen record),
-    rebuild `/linens` admin, add the closeout linen prompt.
+- **Linen subsystem redesign — v1 spec DECIDED (2026-06-30), ready to build.**
+  Replaces `linen_sets` (the per-set state machine). **Migration-gated** — build on
+  a branch, apply on hosted before merge (like supply_notes). Biggest piece; do it
+  as a dedicated slice.
+
+  **Schema (3 tables):**
+  - `linen_types(id, kind 'sheet_set'|'duvet_set', label, count int, created_at)` —
+    the inventory: each type + how many owned. Admin CRUD on `/linens`. (Fixes
+    "only lets me add one of each.")
+  - `turnover_linens(turnover_id, bed smallint, sheet_type_id → linen_types,
+    duvet_type_id → linen_types, created_at)`, PK `(turnover_id, bed)` — the
+    closeout record: which sheet + duvet type is on each of the **2 beds**. The
+    latest across the unit = current "on beds".
+  - `linen_holdings(id, type_id → linen_types, holder_id → profiles, qty int,
+    created_at)` — what each person currently has **out to wash**. Restock removes them.
+
+  **Locations are derived (no low-stock warnings):** per type, `on_beds` (from the
+  latest `turnover_linens`), `with_cleaner` (sum of `linen_holdings`, grouped by
+  holder so you see who has what), `closet` = count − on_beds − with_cleaner.
+
+  **Closeout linen step (2 beds)** — shown after start, beside "anything running
+  low?": for Bed 1 & Bed 2 pick the sheet type + duvet type now on it. Ask **"who's
+  taking the laundry?"** → defaults to the assigned cleaner; can pick **Daniel/admin**
+  (the backup-cleaner exception: a backup leaves the wash with Daniel to launder +
+  restock). On save: upsert this turnover's `turnover_linens`, and move the
+  **previous** on-beds sets into `linen_holdings` for the chosen holder.
+
+  **Restock action (`/linens`):** the holder (or admin) marks their out linens
+  "returned to closet" → clears their `linen_holdings` (back to closet).
+
+  **`/linens` rebuild:** inventory CRUD (type + count) · per-type location
+  breakdown (on beds / with cleaner [by holder] / closet) · the restock control.
+  Remove "in wash" and the bogus warnings.
 
 ## Wave 1 nits (from Daniel's testing, 2026-06-29)
 
