@@ -268,6 +268,9 @@ export default async function TurnoverDetailPage({
   const checklistItems = (checklist ?? []) as Item[];
   const inventoryItems = (inventory ?? []) as Item[];
   const feedbackList = (feedback ?? []) as { cleanliness: number | null; note: string | null }[];
+  const latestFeedback = feedbackList[0];
+  const initialCleanliness = latestFeedback?.cleanliness ?? 0;
+  const initialNote = latestFeedback?.note ?? "";
 
   const isActive = status === "scheduled";
 
@@ -350,6 +353,9 @@ export default async function TurnoverDetailPage({
               items={checklistItems}
               initialChecked={checkedItems}
               inventoryItems={inventoryItems}
+              initialCleanliness={initialCleanliness}
+              initialNote={initialNote}
+              existingSupplyNotes={supplyNotes}
             />
           </Card>
         )}
@@ -400,33 +406,49 @@ export default async function TurnoverDetailPage({
           </Card>
         )}
 
-        {/* Everything captured during the turnover, collapsed by default. */}
+        {/* Everything captured during the turnover, collapsed by default. The
+            assigned cleaner / admin can edit it in place (stays completed). */}
         {status === "completed" && (
           <details className="rounded-lg border border-border p-4">
             <summary className="cursor-pointer text-heading">Turnover details</summary>
             <div className="flex flex-col gap-6 pt-4">
-              <div className="flex flex-col gap-2">
-                <h3 className="text-heading">Guest feedback</h3>
-                <FeedbackList feedback={feedbackList} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <h3 className="text-heading">Before you leave</h3>
-                <ItemList items={checklistItems} checked={checkedItems} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <h3 className="text-heading">Flagged low</h3>
-                {supplyNotes.length > 0 ? (
-                  supplyNotes.map((n) => (
-                    <p key={n.id} className="text-body text-foreground">
-                      {n.body}
-                    </p>
-                  ))
-                ) : (
-                  <p className="text-caption text-muted-foreground">Nothing flagged.</p>
-                )}
-              </div>
-              {(isAdmin || isAssigned) && (
-                <div>
+              {canWork ? (
+                <CloseoutFlow
+                  turnoverId={turnover.id as string}
+                  items={checklistItems}
+                  initialChecked={checkedItems}
+                  inventoryItems={inventoryItems}
+                  mode="edit"
+                  initialCleanliness={initialCleanliness}
+                  initialNote={initialNote}
+                  existingSupplyNotes={supplyNotes}
+                />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-heading">Guest feedback</h3>
+                    <FeedbackList feedback={feedbackList} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-heading">Before you leave</h3>
+                    <ItemList items={checklistItems} checked={checkedItems} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-heading">Flagged low</h3>
+                    {supplyNotes.length > 0 ? (
+                      supplyNotes.map((n) => (
+                        <p key={n.id} className="text-body text-foreground">
+                          {n.body}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-caption text-muted-foreground">Nothing flagged.</p>
+                    )}
+                  </div>
+                </>
+              )}
+              {isAdmin && (
+                <div className="border-t border-border pt-4">
                   <ReopenTurnoverButton turnoverId={turnover.id as string} />
                 </div>
               )}

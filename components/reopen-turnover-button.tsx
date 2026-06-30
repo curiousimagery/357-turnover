@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { reopenTurnover } from "@/app/turnover/actions";
 
-/** Reopen a completed turnover for editing (unlocks the closeout again). */
+/** Admin-only: flip a completed turnover back to incomplete. (Editing the
+ *  details in place doesn't need this — it's only to truly reopen the work.) */
 export function ReopenTurnoverButton({ turnoverId }: { turnoverId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -16,7 +17,7 @@ export function ReopenTurnoverButton({ turnoverId }: { turnoverId: string }) {
     startTransition(async () => {
       const result = await reopenTurnover(turnoverId);
       if (result.ok) {
-        toast.success("Turnover reopened for editing");
+        toast.success("Marked incomplete");
         router.refresh();
       } else {
         toast.error(result.error);
@@ -26,7 +27,7 @@ export function ReopenTurnoverButton({ turnoverId }: { turnoverId: string }) {
 
   return (
     <Button size="sm" variant="outline" disabled={pending} onClick={reopen}>
-      Edit turnover
+      Mark incomplete
     </Button>
   );
 }

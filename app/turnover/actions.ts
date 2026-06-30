@@ -250,9 +250,10 @@ export async function savePrepNotes(input: {
 }
 
 /**
- * Reopen a completed turnover for editing (e.g. it was marked complete by
- * mistake). Back to 'scheduled', keeping started_at so it lands on the closeout
- * view with everything unlocked again. Gated to admin or the assignee.
+ * Mark a completed turnover incomplete again (back to 'scheduled', keeping
+ * started_at so it returns to the closeout view). Admin-only: once a cleaner has
+ * completed, only the admin flips it back. Editing the closeout details in place
+ * (saveCloseout) does NOT require this.
  */
 export async function reopenTurnover(turnoverId: string): Promise<ActionResult> {
   const supabase = await createClient();
@@ -260,10 +261,13 @@ export async function reopenTurnover(turnoverId: string): Promise<ActionResult> 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Please sign in." };
-
-  const { isAdmin, isAssigned } = await adminOrAssigned(supabase, user.id, turnoverId);
-  if (!isAdmin && !isAssigned) {
-    return { ok: false, error: "Only the assigned cleaner or an admin can reopen this." };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Only an admin can mark a completed turnover incomplete." };
   }
 
   const { error } = await createAdminClient()
@@ -274,6 +278,60 @@ export async function reopenTurnover(turnoverId: string): Promise<ActionResult> 
 
   revalidatePath(`/turnover/${turnoverId}`);
   revalidatePath("/schedule");
+  return { ok: true };
+}
+
+/**
+ * Edit a turnover's closeout details (stars + feedback, optionally append a
+ * "running low" note) **in place** without changing its status — so a completed
+ * turnover stays completed and prior values aren't lost. Checklist ticks persist
+ * on their own (setChecklistItem). Gated to the assigned cleaner or an admin.
+ */
+export async function saveCloseout(input: {
+  turnoverId: string;
+  cleanliness: number | null;
+  note: string;
+  supplyNote?: string;
+}): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const { isAdmin, isAssigned } = await adminOrAssigned(supabase, user.id, input.turnoverId);
+  if (!isAdmin && !isAssigned) {
+    return { ok: false, error: "Only the assigned cleaner or an admin can edit this." };
+  }
+
+  const admin = createAdminClient();
+  const cleanliness =
+    input.cleanliness && input.cleanliness >= 1 && input.cleanliness <= 5
+      ? input.cleanliness
+      : null;
+  // One feedback record per turnover — replace in place.
+  await admin.from("guest_feedback").delete().eq("turnover_id", input.turnoverId);
+  if (cleanliness || input.note.trim()) {
+    await admin.from("guest_feedback").insert({
+      turnover_id: input.turnoverId,
+      cleanliness,
+      note: input.note.trim() || null,
+      created_by: user.id,
+    });
+  }
+  if (input.supplyNote?.trim()) {
+    try {
+      await admin.from("supply_notes").insert({
+        turnover_id: input.turnoverId,
+        author_id: user.id,
+        body: input.supplyNote.trim(),
+      });
+    } catch (e) {
+      console.error("supply note on edit failed:", e);
+    }
+  }
+
+  revalidatePath(`/turnover/${input.turnoverId}`);
   return { ok: true };
 }
 

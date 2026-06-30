@@ -11,34 +11,45 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { WhatWeStockDialog } from "@/components/what-we-stock-dialog";
-import { completeTurnover, setChecklistItem } from "@/app/turnover/actions";
+import type { SupplyNote } from "@/components/supply-notes";
+import { completeTurnover, saveCloseout, setChecklistItem } from "@/app/turnover/actions";
 
 type Item = { id: string; name: string; description: string; helper: string | null };
 
 /**
  * The whole closeout, flat on the page (no modal): rate the guest, leave
- * feedback, tick the "before you leave" list (persisted), flag anything low, then
- * mark complete. Complete needs ≥1 checklist item ticked and a feedback note —
- * the button nudges (hover title / tap toast) until both are there.
+ * feedback, tick the "before you leave" list (persisted), flag anything low.
+ * In "complete" mode the button marks the turnover complete (needs ≥1 item
+ * ticked + a feedback note). In "edit" mode (a completed turnover) the fields are
+ * pre-filled and "Save changes" updates them in place — status stays completed.
  */
 export function CloseoutFlow({
   turnoverId,
   items,
   initialChecked,
   inventoryItems,
+  mode = "complete",
+  initialCleanliness = 0,
+  initialNote = "",
+  existingSupplyNotes = [],
 }: {
   turnoverId: string;
   items: Item[];
   initialChecked: Record<string, boolean>;
   inventoryItems: Item[];
+  mode?: "complete" | "edit";
+  initialCleanliness?: number;
+  initialNote?: string;
+  existingSupplyNotes?: SupplyNote[];
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState<Record<string, boolean>>(initialChecked);
-  const [cleanliness, setCleanliness] = useState(0);
-  const [note, setNote] = useState("");
+  const [cleanliness, setCleanliness] = useState(initialCleanliness);
+  const [note, setNote] = useState(initialNote);
   const [supplyNote, setSupplyNote] = useState("");
   const [pending, startTransition] = useTransition();
 
+  const isEdit = mode === "edit";
   const checkedCount = items.filter((i) => checked[i.id]).length;
   const ready = checkedCount >= 1 && note.trim().length > 0;
   const nudge =
@@ -55,7 +66,25 @@ export function CloseoutFlow({
     });
   }
 
-  function complete() {
+  function submit() {
+    if (isEdit) {
+      startTransition(async () => {
+        const result = await saveCloseout({
+          turnoverId,
+          cleanliness: cleanliness || null,
+          note,
+          supplyNote,
+        });
+        if (result.ok) {
+          toast.success("Changes saved");
+          setSupplyNote("");
+          router.refresh();
+        } else {
+          toast.error(result.error);
+        }
+      });
+      return;
+    }
     if (!ready) {
       toast.error(nudge);
       return;
@@ -150,25 +179,38 @@ export function CloseoutFlow({
           <Label htmlFor="running-low">Anything running low?</Label>
           <WhatWeStockDialog items={inventoryItems} />
         </div>
+        {existingSupplyNotes.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {existingSupplyNotes.map((n) => (
+              <p key={n.id} className="text-caption text-muted-foreground">
+                • {n.body}
+              </p>
+            ))}
+          </div>
+        )}
         <Textarea
           id="running-low"
           value={supplyNote}
           onChange={(e) => setSupplyNote(e.target.value)}
           className="text-body"
-          placeholder="e.g. down to one roll of paper towels, almost out of coffee"
+          placeholder={
+            isEdit
+              ? "Add another if something else is low…"
+              : "e.g. down to one roll of paper towels, almost out of coffee"
+          }
         />
         <span className="text-caption text-muted-foreground">
-          Added to the inventory list when you mark complete.
+          Added to the inventory list when you {isEdit ? "save" : "mark complete"}.
         </span>
       </div>
 
       <Button
         size="touch"
-        onClick={complete}
-        title={ready ? undefined : nudge}
-        className={cn(!ready && "opacity-60")}
+        onClick={submit}
+        title={isEdit || ready ? undefined : nudge}
+        className={cn(!isEdit && !ready && "opacity-60")}
       >
-        {pending ? "Saving…" : "Mark turnover complete"}
+        {pending ? "Saving…" : isEdit ? "Save changes" : "Mark turnover complete"}
       </Button>
     </div>
   );
