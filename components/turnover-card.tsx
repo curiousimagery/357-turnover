@@ -63,7 +63,9 @@ export function TurnoverCard({
   return (
     <Card
       className={cn(
-        "relative flex items-start justify-between gap-4 p-4 transition-colors",
+        // `isolate` scopes the CTA's z-10 to this card so it can't float over the
+        // sticky header (which is also z-10).
+        "relative isolate flex items-start justify-between gap-4 p-4 transition-colors",
         href && "hover:bg-muted/50",
         isSameDay && "border-urgent",
         status === "cancelled" && "opacity-60",
