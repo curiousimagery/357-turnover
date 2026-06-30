@@ -56,6 +56,9 @@ export function TurnoverCard({
     turnover;
   const isOpen = status === "scheduled" && !assignee;
   const isActive = status === "scheduled" || status === "claimed";
+  const cta = !readOnly
+    ? (action ?? (isOpen ? <Button size="touch" variant="default">Claim</Button> : null))
+    : null;
 
   return (
     <Card
@@ -127,17 +130,12 @@ export function TurnoverCard({
         )}
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-2">
+      <div className="flex shrink-0 flex-col items-end gap-2 self-stretch">
         {assignee && (
           <CleanerTag name={assignee.name} color={assignee.color} withName />
         )}
-        {!readOnly &&
-          (action ??
-            (isOpen ? (
-              <Button size="touch" variant="default">
-                Claim
-              </Button>
-            ) : null))}
+        {/* Pin the CTA to the bottom-right so it doesn't move when a cleaner tag appears. */}
+        {cta && <div className="mt-auto">{cta}</div>}
       </div>
     </Card>
   );

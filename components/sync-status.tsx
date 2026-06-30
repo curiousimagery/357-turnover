@@ -25,29 +25,36 @@ export function SyncStatus({
     : null;
 
   let dotClass = "bg-success";
-  let label: string;
+  let leading: string | null = null; // always-shown (e.g. "stale · ")
+  let main: string; // the relative time, always shown
+  let showSynced = true; // the "synced" word — hidden on small screens
   if (minutes === null) {
     dotClass = "bg-danger";
-    label = "never synced";
-  } else if (minutes >= STALE_AFTER_MIN) {
-    dotClass = "bg-danger";
-    label = `stale — synced ${formatRelativeMinutes(minutes)}`;
-  } else if (minutes >= WARN_AFTER_MIN) {
-    dotClass = "bg-warning";
-    label = `synced ${formatRelativeMinutes(minutes)}`;
+    main = "never synced";
+    showSynced = false;
   } else {
-    label = `synced ${formatRelativeMinutes(minutes)}`;
+    main = formatRelativeMinutes(minutes);
+    if (minutes >= STALE_AFTER_MIN) {
+      dotClass = "bg-danger";
+      leading = "stale · ";
+    } else if (minutes >= WARN_AFTER_MIN) {
+      dotClass = "bg-warning";
+    }
   }
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-md border border-border px-2 py-1 text-caption text-muted-foreground",
+        "inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-border px-2 py-1 text-caption text-muted-foreground",
         className,
       )}
     >
       <span className={cn("h-2 w-2 shrink-0 rounded-md", dotClass)} aria-hidden="true" />
-      {label}
+      <span>
+        {leading}
+        {showSynced && <span className="hidden sm:inline">synced </span>}
+        {main}
+      </span>
     </span>
   );
 }
