@@ -90,13 +90,13 @@
     --input: hsl(220 14% 26%);
     --ring: hsl(0 0% 83%);
 
-    --urgent: hsl(14 86% 56%);
+    --urgent: hsl(258, 38%, 49%); 
     --urgent-foreground: hsl(0 0% 100%);
-    --success: hsl(152 52% 42%);
+    --success: hsl(134, 65%, 33%); 
     --success-foreground: hsl(0 0% 100%);
-    --warning: hsl(38 92% 55%);
-    --warning-foreground: hsl(28 75% 12%);
-    --danger: hsl(0 70% 55%);
+    --warning: hsl(52, 85%, 76%); 
+    --warning-foreground: hsl(28 75% 14%);
+    --danger: hsl(0 72% 48%); 
     --danger-foreground: hsl(0 0% 100%);
 
     --destructive: hsl(0 70% 55%);
