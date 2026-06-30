@@ -63,7 +63,8 @@ export function TurnoverCard({
   return (
     <Card
       className={cn(
-        "flex items-start justify-between gap-4 p-4",
+        "relative flex items-start justify-between gap-4 p-4 transition-colors",
+        href && "hover:bg-muted/50",
         isSameDay && "border-urgent",
         status === "cancelled" && "opacity-60",
         className,
@@ -71,7 +72,9 @@ export function TurnoverCard({
     >
       <div className="flex flex-col gap-2">
         {href ? (
-          <Link href={href} className="hover:underline">
+          // Stretched link: the date stays the visible link, but its ::after
+          // overlay makes the whole card tappable (buttons sit above it).
+          <Link href={href} className="hover:underline after:absolute after:inset-0">
             <div className="text-display">{formatMonthDay(date)}</div>
             <div className="text-caption text-muted-foreground">
               {formatWeekday(date)}
@@ -135,7 +138,7 @@ export function TurnoverCard({
           <CleanerTag name={assignee.name} color={assignee.color} withName />
         )}
         {/* Pin the CTA to the bottom-right so it doesn't move when a cleaner tag appears. */}
-        {cta && <div className="mt-auto">{cta}</div>}
+        {cta && <div className="relative z-10 mt-auto">{cta}</div>}
       </div>
     </Card>
   );

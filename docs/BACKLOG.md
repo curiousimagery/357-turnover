@@ -6,6 +6,40 @@ and `DATA_MODEL.md`. Steps to deploy the current build are in `docs/GO_LIVE.md`.
 Roughly ordered: pre-launch hardening first, then the near-term feature, then
 deferred features and enhancements.
 
+## Wave 2 (cleaner usability test, 2026-06-30)
+
+- **Edit a completed turnover without reverting / data loss — TODO.** Today "Edit
+  turnover" calls `reopenTurnover` → flips status back to `scheduled`, and the
+  closeout flow re-saves from *empty* local state (and `completeTurnover` deletes
+  the prior `guest_feedback`), so the cleaner lost her star rating + feedback +
+  inventory note. Desired: editing a completed turnover **stays completed**,
+  **pre-fills** the existing values (stars/feedback/checklist are already stored;
+  pass the existing `guest_feedback` row into `CloseoutFlow` as initial state),
+  and **saves in place** (update, not delete+insert from empty). "Mark
+  incomplete" becomes an **admin-only** action once a cleaner has completed it.
+  Needs: `CloseoutFlow` initial cleanliness/note props + a save-edits path that
+  doesn't change status; gate reopen to admin.
+- **Whole schedule card clickable — DONE** (this commit): stretched link over the
+  card + a subtle hover; the CTA buttons stay above it.
+
+- **Linen subsystem redesign — TODO (needs migration + UI).** The current
+  one-row-per-set + state machine (`linen_sets`, on_beds/with_cleaner/clean_backup/
+  in_wash) doesn't match how it's used. Desired model:
+  - **Count-based inventory:** the admin defines linen *types* with a **count**
+    (e.g. ×5 white cotton sheet sets, ×3 blue linen duvet covers) — not one row
+    each. Likely `linen_types(id, kind, label, count)`; drop the per-set state.
+  - **Two locations only:** on the beds vs. in the cleaning-closet storage.
+    **Remove the "in wash" status.**
+  - **Closeout step:** after a turnover is started, ask the cleaner **which linen
+    sets they put on the beds and which they stored** — shown alongside the
+    "anything running low?" note. Persist per turnover (who/what/when).
+  - **Fix `/linens` UX:** let the admin set counts (today it only adds one of each)
+    and kill the bogus low-stock warnings (e.g. "Only 1 clean Sage Green Linen
+    duvet set backup left" when there's exactly one). Re-derive low-stock from the
+    count model, or drop it.
+  - Dedicated build: migration(s) for `linen_types` (+ a per-turnover linen record),
+    rebuild `/linens` admin, add the closeout linen prompt.
+
 ## Wave 1 nits (from Daniel's testing, 2026-06-29)
 
 - **Notify on manual-turnover delete — DONE.** `deleteTurnover` reads the
