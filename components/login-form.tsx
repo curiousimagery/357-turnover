@@ -44,9 +44,15 @@ export function LoginForm({
       });
       if (error) throw error;
       setSent(true);
-    } catch (error: unknown) {
+    } catch (err: unknown) {
+      // Surface the real reason: a failed auth-email send often comes back as an
+      // empty "{}" message. Log the full error and show something actionable.
+      console.error("sign-in error:", err);
+      const raw = err instanceof Error ? err.message?.trim() : "";
       setError(
-        error instanceof Error ? error.message : "Something went wrong",
+        raw && raw !== "{}"
+          ? raw
+          : "We couldn't send the sign-in link — the email service may be misconfigured (check Supabase SMTP). See the browser console for details.",
       );
     } finally {
       setIsLoading(false);
