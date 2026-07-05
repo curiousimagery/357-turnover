@@ -85,7 +85,9 @@ export function CloseoutFlow({
     }
     return init;
   });
-  const [holderId, setHolderId] = useState(defaultHolderId ?? "");
+  // Admin defaults to the assignee (they're often filing on someone's behalf); a
+  // cleaner gets no default, so they must consciously pick take-home vs airlock.
+  const [holderId, setHolderId] = useState(isAdmin ? (defaultHolderId ?? "") : "");
   const [pending, startTransition] = useTransition();
 
   const isEdit = mode === "edit";
@@ -112,6 +114,12 @@ export function CloseoutFlow({
   function submit() {
     if (!isEdit && !ready) {
       toast.error(nudge);
+      return;
+    }
+    // If a cleaner recorded fresh linens, make them say where the dirty set went
+    // (no silent default) so the inventory move is right.
+    if (!isEdit && !isAdmin && linenTypes.length > 0 && hasLinenSelection && !holderId) {
+      toast.error("Say whether you’re taking the dirty laundry or leaving it in the airlock.");
       return;
     }
     startTransition(async () => {
@@ -276,9 +284,10 @@ export function CloseoutFlow({
               <select
                 id="laundry-holder"
                 className={selectClass}
-                value={holderId || currentUserId}
+                value={holderId}
                 onChange={(e) => setHolderId(e.target.value)}
               >
+                <option value="">— Select —</option>
                 <option value={currentUserId}>I’m taking it home to wash</option>
                 {adminHolderId && (
                   <option value={adminHolderId}>
