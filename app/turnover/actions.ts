@@ -251,6 +251,38 @@ export async function savePrepNotes(input: {
 }
 
 /**
+ * Admin quick-completes a turnover for record-keeping — e.g. a backfilled
+ * historical turnover with no cleaner assigned (so it stops showing as
+ * unclaimed/active). Flips status to completed without requiring an assignment
+ * or closeout feedback, and sends no completion notice (this isn't a cleaner
+ * finishing work). Admin-only; reversible via reopenTurnover.
+ */
+export async function adminCompleteTurnover(turnoverId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (me?.role !== "admin") return { ok: false, error: "Admins only." };
+
+  const { error } = await createAdminClient()
+    .from("turnovers")
+    .update({ status: "completed", completed_at: new Date().toISOString() })
+    .eq("id", turnoverId)
+    .neq("status", "completed");
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/schedule");
+  revalidatePath(`/turnover/${turnoverId}`);
+  return { ok: true };
+}
+
+/**
  * Mark a completed turnover incomplete again (back to 'scheduled', keeping
  * started_at so it returns to the closeout view). Admin-only: once a cleaner has
  * completed, only the admin flips it back. Editing the closeout details in place

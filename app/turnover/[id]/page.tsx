@@ -9,6 +9,7 @@ import { CleanerTag } from "@/components/cleaner-tag";
 import { CloseoutFlow } from "@/components/closeout-flow";
 import { StartTurnoverButton } from "@/components/start-turnover-button";
 import { ReopenTurnoverButton } from "@/components/reopen-turnover-button";
+import { AdminCompleteButton } from "@/components/admin-complete-button";
 import type { SupplyNote } from "@/components/supply-notes";
 import { DeleteTurnoverButton } from "@/components/delete-turnover-button";
 import { CleanerNoteForm } from "@/components/cleaner-note-form";
@@ -18,7 +19,7 @@ import { PrepNotes } from "@/components/prep-notes";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils";
-import { formatMonthDay, formatWeekday, formatNiceDate } from "@/lib/dates";
+import { formatMonthDay, formatWeekday, formatNiceDate, todayInPropertyTz } from "@/lib/dates";
 
 export const metadata = { title: "Turnover — 357 Oasis Turnovers" };
 
@@ -311,6 +312,7 @@ export default async function TurnoverDetailPage({
   const defaultHolderId = assignment?.cleaner_id ?? null;
 
   const isActive = status === "scheduled";
+  const isPast = (turnover.turnover_date as string) < todayInPropertyTz();
 
   return (
     <div className="min-h-svh">
@@ -379,6 +381,11 @@ export default async function TurnoverDetailPage({
               currentUserId={user.id}
               cleaners={cleaners}
             />
+            {/* Backfill shortcut: quietly mark a past turnover done (no cleaner
+                needed) so it leaves the unclaimed/active filters. */}
+            {isAdmin && isPast && !started && (
+              <AdminCompleteButton turnoverId={turnover.id as string} />
+            )}
           </div>
         )}
 
