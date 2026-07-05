@@ -176,11 +176,12 @@ export default async function TurnoverDetailPage({
       .eq("turnover_id", id)
       .maybeSingle(),
     isAdmin
-      ? supabase
+      ? // All active people, admins included — so the admin can assign a turnover
+        // to themselves (e.g. fixing a historical record), matching the schedule.
+        supabase
           .from("profiles")
           .select("id, display_name, color")
           .eq("active", true)
-          .eq("role", "cleaner")
           .order("display_name", { ascending: true })
       : Promise.resolve({ data: [] as { id: string; display_name: string; color: string | null }[] }),
     supabase
