@@ -130,23 +130,70 @@ turnovers), and it carries claim / assign / release + the three notes + a
 prominent "back to schedule." This retires the in-list scroll-and-highlight (so
 the light-yellow focus idea is moot).
 
-## Near-term feature: view past / historical turnovers
+## View past / historical turnovers — mostly DONE; history-loss bug FIXED
 
-Today the schedule hard-filters to upcoming (`turnover_date >= today`,
-`app/schedule/page.tsx`) and the only filter axis is ownership (All / Mine /
-Unclaimed). There is **no way to see past turnovers** except the admin-only
-per-cleaner page — so once a date passes, a turnover and its feedback/payment drop
-off. **Not in the spec** (it's upcoming-oriented). A real gap, sharpest for
-payments: a cleaner can't see their own paid/unpaid history.
+**The three-picker view is built** (Who / When / Status on `/schedule`, filtered
+client-side over all non-cancelled turnovers). Past turnovers render read-only;
+cleaners see their own, admin sees all. The dedicated `/turnover/[id]` page is the
+deep-link target for historic turnovers.
 
-**Decided — three independent pickers** on the schedule (default = all upcoming):
-- **Who:** Mine / Everyone (admin also gets per-cleaner by name).
-- **When:** Upcoming / Historic / All.
-- **Status:** Claimed / Unclaimed / All.
+**The real gap was the sync erasing history — fixed forward (2026-06-30).**
+Reconcile step 7 marked a turnover `cancelled` whenever its booking left the iCal
+feed. But Airbnb drops reservations from the feed shortly after checkout, so every
+past Airbnb turnover *not* marked `completed` was silently cancelled and fell out
+of the view (the schedule query excludes `cancelled`). That's why only a manual,
+completed turnover survived in "Past." Fix: step 7 now only cancels turnovers dated
+**today or later** (`lib/sync/reconcile.ts`) — a past booking leaving the feed is
+not a cancellation, it already happened.
 
-Reuse the same list + cards; past turnovers render read-only. Cleaners see their
-own, admin sees all. The dedicated turnover page (above) is the deep-link target
-for historic turnovers. Mostly relaxing the `.gte` filter + the picker UI.
+**Still TODO — repair the already-cancelled past turnovers.** Rows cancelled before
+the fix stay cancelled. Before mutating prod, run the diagnostic to see the truth:
+`select turnover_date, source, status, id from turnovers order by turnover_date;`
+Then craft a targeted un-cancel — likely `source='airbnb' and turnover_date < today
+and status='cancelled'` back to `scheduled` — but watch for genuinely-cancelled
+future bookings that are now simply past (those *should* stay cancelled). Decide
+with the real rows in hand; keep it a one-off reviewed SQL, not code.
+
+## Cleaner tiers — primary vs backup (decided to DEFER, 2026-06-30)
+
+Give each cleaner a tier so backups take a back seat to primaries. Two behaviors,
+split into a cheap half and a medium half. Skipped for now; captured here to pick
+up later.
+
+**Schema (small):**
+- `profiles.tier text not null default 'primary' check (tier in ('primary','backup'))`
+  (or a `is_backup boolean`). Admin sets it on the Cleaners page.
+- **Escalation guard (must-do, easy to forget):** the profiles update trigger pins
+  `role`/`active` for non-admins so a cleaner can't self-promote
+  (`supabase/migrations/20260622000000_init_profiles.sql`, `new.role := old.role`).
+  `tier` needs the same pin (`new.tier := old.tier`) or a backup could flip
+  themselves to primary to jump the claim queue.
+
+**Behavior A — backup-only "leave it in the airlock" laundry question (cheap):**
+- Primaries always take the dirty laundry home → auto-set the closeout holder to
+  themselves and hide the take-home/airlock question. Backups get the choice (the
+  control already exists in `components/closeout-flow.tsx`; just gate it on tier).
+  Thread the viewer's tier into `CloseoutFlow`.
+
+**Behavior B — 1-day claim delay for backups (medium — two decisions first):**
+- Mechanic is easy: `turnovers.created_at` exists; in `claimTurnover`
+  (`app/schedule/actions.ts`), reject a backup's claim while
+  `now − created_at < 24h` ("opens to backup cleaners on <date>").
+- Two design calls make it non-trivial:
+  1. **Runway carve-out.** A 24h delay is nonsense for a same-day / near-term
+     turnover — an unclaimed urgent one must be claimable by backups immediately.
+     Need a rule, e.g. "delay only applies when the turnover is > N days out," or
+     "backups are always eligible within 2 days of the date regardless."
+  2. **Notifications.** Either (a) gate only the claim button and notify everyone
+     (simple, reliable), or (b) actually delay the "available to claim" email to
+     backups by a day (needs scheduling machinery — more moving parts). Prefer (a).
+- UI: the schedule card must hide/disable Claim for a backup inside the window
+  (with an "opens to you on X" hint) so they don't tap into an error — needs the
+  viewer's tier + the turnover's `created_at` + the eligibility computation.
+
+**Verdict:** schema + escalation guard + Behavior A is a tidy ~half-day slice.
+Behavior B is worth it but pin the two decisions first. Build A first; spec B
+before building.
 
 ## Notification cleanup — DONE
 

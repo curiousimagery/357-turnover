@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseIcal } from "./ical";
 import { toReservations, deriveTurnovers, type Reservation } from "./derive";
 import { enqueueSyncNotifications } from "../notify/enqueue";
+import { todayInPropertyTz } from "../dates";
 
 export type SyncOutcome = {
   status: "success" | "skipped" | "failed";
@@ -193,13 +194,18 @@ export async function runSync(
       });
   }
 
-  // 7. Cancel turnovers whose underlying booking was cancelled (preserve row).
+  // 7. Cancel turnovers whose booking vanished from the feed — but only UPCOMING
+  // ones. Airbnb drops reservations from the feed shortly after checkout, so a
+  // *past* booking going missing is not a cancellation: that turnover already
+  // happened and must stay in history. Only a future booking disappearing is a
+  // real cancellation. (Completed turnovers are always preserved too.)
   if (missingIds.length > 0) {
     await supabase
       .from("turnovers")
       .update({ status: "cancelled" })
       .in("booking_out_id", missingIds)
-      .neq("status", "completed");
+      .neq("status", "completed")
+      .gte("turnover_date", todayInPropertyTz());
   }
 
   // 7b. Enqueue notifications for what changed. This is a convenience layer —
