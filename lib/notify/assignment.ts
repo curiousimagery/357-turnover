@@ -9,13 +9,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { notificationCopy } from "./copy";
+import { flushPendingEmails } from "./send";
+
+/**
+ * Enqueue notification row(s) and deliver their emails immediately (best-effort).
+ * These are user-triggered events someone is waiting on, so we don't sit in the
+ * outbox until the hourly sync drain — we flush now. Delivery is defensive and
+ * idempotent (each row flips to sent/failed), and the sync drain stays as the
+ * backstop for anything this misses.
+ */
+async function deliver(
+  admin: SupabaseClient,
+  rows: Record<string, unknown> | Record<string, unknown>[],
+): Promise<void> {
+  await admin.from("notifications").insert(rows);
+  await flushPendingEmails(admin);
+}
 
 export async function notifyAssigned(
   admin: SupabaseClient,
   args: { turnoverId: string; date: string; cleanerId: string },
 ): Promise<void> {
   const copy = notificationCopy.assigned(args.date);
-  await admin.from("notifications").insert({
+  await deliver(admin, {
     recipient_id: args.cleanerId,
     type: "assigned",
     channel: "email",
@@ -32,7 +48,7 @@ export async function notifyRemoved(
   args: { turnoverId: string; date: string; cleanerId: string },
 ): Promise<void> {
   const copy = notificationCopy.unassigned(args.date);
-  await admin.from("notifications").insert({
+  await deliver(admin, {
     recipient_id: args.cleanerId,
     type: "unassigned",
     channel: "email",
@@ -62,7 +78,8 @@ export async function notifyAvailable(
 
   const copy = notificationCopy.available(args.date);
   const stamp = Date.now();
-  await admin.from("notifications").insert(
+  await deliver(
+    admin,
     recipients.map((id) => ({
       recipient_id: id,
       type: "available",
@@ -92,7 +109,8 @@ export async function notifyAdminsReleased(
 
   const copy = notificationCopy.released(args.date, args.releasedByName);
   const stamp = Date.now();
-  await admin.from("notifications").insert(
+  await deliver(
+    admin,
     recipients.map((id) => ({
       recipient_id: id,
       type: "released",
@@ -112,7 +130,7 @@ export async function notifyPaid(
   args: { turnoverId: string; date: string; cleanerId: string; amount: number | null },
 ): Promise<void> {
   const copy = notificationCopy.paymentSent(args.date, args.amount);
-  await admin.from("notifications").insert({
+  await deliver(admin, {
     recipient_id: args.cleanerId,
     type: "payment_sent",
     channel: "email",
@@ -131,7 +149,7 @@ export async function notifyCleanerNote(
   args: { turnoverId: string; date: string; cleanerId: string; note: string },
 ): Promise<void> {
   const copy = notificationCopy.cleanerNote(args.date, args.note);
-  await admin.from("notifications").insert({
+  await deliver(admin, {
     recipient_id: args.cleanerId,
     type: "cleaner_note",
     channel: "email",
@@ -152,7 +170,7 @@ export async function notifyManualCancelled(
   args: { date: string; cleanerId: string },
 ): Promise<void> {
   const copy = notificationCopy.cancelled(args.date);
-  await admin.from("notifications").insert({
+  await deliver(admin, {
     recipient_id: args.cleanerId,
     type: "cancelled",
     channel: "email",
@@ -179,7 +197,8 @@ export async function notifyAdminsCompleted(
 
   const copy = notificationCopy.completed(args.date, args.cleanerName);
   const stamp = Date.now();
-  await admin.from("notifications").insert(
+  await deliver(
+    admin,
     recipients.map((id) => ({
       recipient_id: id,
       type: "completed",

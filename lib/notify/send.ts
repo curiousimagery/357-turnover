@@ -113,3 +113,20 @@ export async function sendPendingNotifications(
 async function markFailed(supabase: SupabaseClient, id: string) {
   await supabase.from("notifications").update({ status: "failed" }).eq("id", id);
 }
+
+/**
+ * Deliver any pending emails right now, best-effort. The user-triggered notifiers
+ * call this so an action's email goes out immediately instead of waiting for the
+ * hourly sync drain. Fully defensive: an unset sender or any send failure is
+ * swallowed, so it can never break the action that enqueued the notice (the
+ * schedule stays authoritative; the hourly drain remains the backstop).
+ */
+export async function flushPendingEmails(supabase: SupabaseClient): Promise<void> {
+  try {
+    const config = senderConfigFromEnv();
+    if (!config) return; // not configured — the sync drain will no-op too
+    await sendPendingNotifications(supabase, config);
+  } catch (e) {
+    console.error("prompt email flush failed (non-fatal):", e);
+  }
+}

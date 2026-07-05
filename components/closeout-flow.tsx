@@ -46,6 +46,10 @@ export function CloseoutFlow({
   holders = [],
   defaultHolderId = null,
   initialBeds = [],
+  isAdmin = false,
+  currentUserId,
+  adminHolderId = null,
+  adminName = "the admin",
 }: {
   turnoverId: string;
   items: Item[];
@@ -59,6 +63,10 @@ export function CloseoutFlow({
   holders?: Holder[];
   defaultHolderId?: string | null;
   initialBeds?: BedLinen[];
+  isAdmin?: boolean;
+  currentUserId: string;
+  adminHolderId?: string | null;
+  adminName?: string;
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState<Record<string, boolean>>(initialChecked);
@@ -208,7 +216,7 @@ export function CloseoutFlow({
           <div className="flex flex-col gap-0.5">
             <Label>Fresh linens on the beds</Label>
             <span className="text-caption text-muted-foreground">
-              What you just put on. The set you stripped goes with whoever’s washing.
+              Which clean duvet sets and sheets did you leave on the beds?
             </span>
           </div>
           {[1, 2].map((bed) => (
@@ -247,20 +255,38 @@ export function CloseoutFlow({
             </div>
           ))}
           <div className="flex flex-col gap-1">
-            <Label htmlFor="laundry-holder">Who’s taking the laundry to wash?</Label>
-            <select
-              id="laundry-holder"
-              className={selectClass}
-              value={holderId}
-              onChange={(e) => setHolderId(e.target.value)}
-            >
-              <option value="">No one / not sure</option>
-              {holders.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+            <Label htmlFor="laundry-holder">The dirty laundry</Label>
+            {isAdmin ? (
+              // Admin can hand it to anyone (or no one).
+              <select
+                id="laundry-holder"
+                className={selectClass}
+                value={holderId}
+                onChange={(e) => setHolderId(e.target.value)}
+              >
+                <option value="">No one / not sure</option>
+                {holders.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              // A cleaner only decides: take it home, or leave it for the admin.
+              <select
+                id="laundry-holder"
+                className={selectClass}
+                value={holderId || currentUserId}
+                onChange={(e) => setHolderId(e.target.value)}
+              >
+                <option value={currentUserId}>I’m taking it home to wash</option>
+                {adminHolderId && (
+                  <option value={adminHolderId}>
+                    Leaving it in the airlock for {adminName}
+                  </option>
+                )}
+              </select>
+            )}
           </div>
         </div>
       )}

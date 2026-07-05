@@ -269,7 +269,7 @@ export default async function TurnoverDetailPage({
   // backlogged as open-source prep).
   const { data: adminRow } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("id, display_name")
     .eq("role", "admin")
     .eq("active", true)
     .order("display_name", { ascending: true })
@@ -277,6 +277,7 @@ export default async function TurnoverDetailPage({
     .maybeSingle();
   const adminFirst =
     (adminRow?.display_name as string | undefined)?.split(" ")[0] || "the admin";
+  const adminHolderId = (adminRow?.id as string | undefined) ?? null;
   const paidDate = payment?.paid_at
     ? formatNiceDate(String(payment.paid_at).slice(0, 10))
     : null;
@@ -396,6 +397,10 @@ export default async function TurnoverDetailPage({
               holders={holders}
               defaultHolderId={defaultHolderId}
               initialBeds={initialBeds}
+              isAdmin={isAdmin}
+              currentUserId={user.id}
+              adminHolderId={adminHolderId}
+              adminName={adminFirst}
             />
           </Card>
         )}
@@ -466,6 +471,10 @@ export default async function TurnoverDetailPage({
                   holders={holders}
                   defaultHolderId={defaultHolderId}
                   initialBeds={initialBeds}
+                  isAdmin={isAdmin}
+                  currentUserId={user.id}
+                  adminHolderId={adminHolderId}
+                  adminName={adminFirst}
                 />
               ) : (
                 <>
