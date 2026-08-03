@@ -10,6 +10,8 @@ import {
   notifyAvailable,
   notifyAdminsReleased,
 } from "@/lib/notify/assignment";
+import { flushPendingEmails } from "@/lib/notify/send";
+import { runSync } from "@/lib/sync/reconcile";
 import { todayInPropertyTz } from "@/lib/dates";
 
 /**
@@ -20,7 +22,44 @@ import { todayInPropertyTz } from "@/lib/dates";
  */
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+export type SyncNowResult =
+  | { ok: true; status: string; added: number; changed: number; cancelled: number }
+  | { ok: false; error: string };
+
 const UNIQUE_VIOLATION = "23505";
+
+/**
+ * Manually run the calendar sync from the app — for when a new booking should
+ * show before the next hourly cron (e.g. coordinating a claim over text). Any
+ * signed-in user can trigger it; it's the same idempotent, defensive reconcile
+ * the cron runs, and it drains any queued emails after.
+ */
+export async function syncNow(): Promise<SyncNowResult> {
+  const { user } = await currentUser();
+  if (!user) return { ok: false, error: "Please sign in." };
+
+  const icalUrl = process.env.AIRBNB_ICAL_URL;
+  if (!icalUrl) return { ok: false, error: "Calendar sync isn't configured." };
+
+  const admin = createAdminClient();
+  try {
+    const outcome = await runSync(admin, icalUrl);
+    await flushPendingEmails(admin); // best-effort; never throws
+    revalidatePath("/schedule");
+    if (outcome.status === "failed") {
+      return { ok: false, error: outcome.error ?? "Sync failed." };
+    }
+    return {
+      ok: true,
+      status: outcome.status,
+      added: outcome.added,
+      changed: outcome.changed,
+      cancelled: outcome.cancelled,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Sync failed." };
+  }
+}
 
 async function currentUser() {
   const supabase = await createClient();

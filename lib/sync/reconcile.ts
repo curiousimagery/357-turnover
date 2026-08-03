@@ -177,15 +177,18 @@ export async function runSync(
         booking_in_id: inUid ? idByUid.get(inUid) ?? null : null,
         is_same_day: t.isSameDay,
         confirmation_code: t.confirmationCode,
-        status: "scheduled",
+        // NOTE: status is deliberately NOT set here — see the upsert comment.
       };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
 
   if (turnoverPayload.length > 0) {
-    // Don't clobber an existing turnover's workflow status — only reset it to
-    // 'scheduled' for brand-new rows. We upsert the derivation fields and let
-    // the conflict target preserve the row identity.
+    // Upsert the derivation fields ONLY — never `status`. On conflict, an upsert
+    // updates exactly the columns present in the payload, so including `status`
+    // would reset a claimed/completed turnover to 'scheduled' every run (a
+    // booking is often still in the feed on the day it's completed). Omitting it
+    // means a brand-new row gets the column default ('scheduled') while an
+    // existing row keeps whatever workflow status it reached.
     await supabase
       .from("turnovers")
       .upsert(turnoverPayload, {

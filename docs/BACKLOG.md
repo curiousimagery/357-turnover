@@ -6,6 +6,47 @@ and `DATA_MODEL.md`. Steps to deploy the current build are in `docs/GO_LIVE.md`.
 Roughly ordered: pre-launch hardening first, then the near-term feature, then
 deferred features and enhancements.
 
+## Live status & open items (checkpoint 2026-08-03)
+
+App in real daily use ~1 month; core works. **This is the durable open-items list
+— read it first when picking the project back up.**
+
+**Shipped this session (2026-08-03):**
+- **Sync no longer resets completed turnovers.** Reconcile step 6 was upserting
+  `status: 'scheduled'`, so every run reset a completed Airbnb turnover back to
+  scheduled (a booking is often still in the feed on completion day) → the admin's
+  payment controls (gated on `status='completed'`) vanished until they re-completed
+  it. Fix: the upsert no longer writes `status` (new rows get the column default;
+  existing rows keep their workflow status). Regression test added.
+- **Manual "Sync now" button** (`components/sync-now-button.tsx`, `syncNow` action)
+  — any signed-in user runs the same reconcile the cron does + drains queued email,
+  so a just-made booking shows without waiting for the hourly cron.
+
+**OPEN — email delivery is down (all notifications, ~since the iCloud migration).**
+No app code changed since 2026-07-05, so it's environmental. Prime suspect: the
+iCloud+ email migration on `curiousimagery.com` changed/replaced DNS and
+un-verified the Resend sending domain `mail.curiousimagery.com` (SPF/DKIM), so
+Resend rejects every send (that's why even Daniel's own gmail gets nothing).
+Diagnose: Resend → Domains → is `mail.curiousimagery.com` still **Verified**?
+Resend → Logs for rejected sends. In SQL: `select status, count(*) from
+notifications where channel='email' group by status;` (a pile of recent `failed` =
+send-side). Fix: re-add Resend's DNS records — **merge, don't replace** the single
+SPF TXT — then re-verify. The same DNS event also broke iCloud→Gmail forwarding
+(separate personal config, not app code).
+
+**Carried-over open items (unaddressed when we paused ~2026-07-05):**
+- Historical data-repair — **DONE** (Daniel ran the un-cancel SQL; past turnovers
+  are visible again).
+- Deactivated-cleaner affordance — a paused cleaner is blocked from claiming but
+  not told why.
+- Primary/backup cleaner tiers — deferred; full spec below.
+- UI / look-and-feel pass; responsive wrapping.
+- "Sibling notes": prep notes (#1) not built; admin→cleaner note is still
+  notification-only, not a persisted turnover field (#3).
+- Notification retry/backoff; near-real-time badge. (Faster email is largely moot
+  now — action emails flush immediately and Sync now drains the outbox.)
+- Yearly pay CSV export.
+
 ## Wave 2 (cleaner usability test, 2026-06-30)
 
 - **Edit a completed turnover without reverting / data loss — TODO.** Today "Edit

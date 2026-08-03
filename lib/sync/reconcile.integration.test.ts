@@ -87,6 +87,36 @@ suite("runSync against local Supabase", () => {
     expect(count).toBe(3);
   });
 
+  it("preserves a completed turnover's status across a re-sync", async () => {
+    // A cleaner can complete a turnover whose booking is still in the feed (it's
+    // often only dropped after checkout day). The next sync must NOT reset it.
+    const { data: one } = await supabase
+      .from("turnovers")
+      .select("id")
+      .eq("source", "airbnb")
+      .limit(1)
+      .single();
+    await supabase
+      .from("turnovers")
+      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .eq("id", one!.id);
+
+    await runSync(supabase, feed.url);
+
+    const { data: after } = await supabase
+      .from("turnovers")
+      .select("status")
+      .eq("id", one!.id)
+      .single();
+    expect(after!.status).toBe("completed");
+
+    // reset so later assertions about counts/state aren't affected
+    await supabase
+      .from("turnovers")
+      .update({ status: "scheduled", completed_at: null })
+      .eq("id", one!.id);
+  });
+
   it("never cancels on an empty feed (the worst failure mode)", async () => {
     const emptyFeed = await serve("BEGIN:VCALENDAR\nEND:VCALENDAR\n");
     const out = await runSync(supabase, emptyFeed.url);

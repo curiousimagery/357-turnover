@@ -8,6 +8,7 @@ import {
 } from "@/components/schedule-list";
 import { ManualTurnoverDialog } from "@/components/manual-turnover-dialog";
 import { SyncStatus } from "@/components/sync-status";
+import { SyncNowButton } from "@/components/sync-now-button";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { todayInPropertyTz } from "@/lib/dates";
@@ -125,7 +126,10 @@ export default async function SchedulePage() {
             <div className="flex items-center gap-2">
               {isAdmin && <ManualTurnoverDialog />}
               {!error && (
-                <SyncStatus lastSyncedAt={syncState?.last_success_at ?? null} />
+                <>
+                  <SyncStatus lastSyncedAt={syncState?.last_success_at ?? null} />
+                  <SyncNowButton />
+                </>
               )}
             </div>
           </div>
