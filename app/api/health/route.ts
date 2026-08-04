@@ -26,8 +26,28 @@ export async function GET() {
     const ageMinutes = lastSuccess
       ? Math.floor((Date.now() - lastSuccess.getTime()) / 60000)
       : null;
-    const ok = ageMinutes !== null && ageMinutes <= STALE_MINUTES;
+    const syncOk = ageMinutes !== null && ageMinutes <= STALE_MINUTES;
 
+    // Email-delivery health: over the last 7 days, are notification emails all
+    // failing? Catches a silent outbound-email outage (bad NOTIFY_FROM / key /
+    // Resend) the sync heartbeat can't see. "3+ attempts, zero delivered" is the
+    // clear-outage signal; a single bad recipient won't trip it, and the first
+    // successful send clears it.
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const emailCount = (status: string) =>
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("channel", "email")
+        .eq("status", status)
+        .gte("created_at", since);
+    const [{ count: emailSent }, { count: emailFailed }] = await Promise.all([
+      emailCount("sent"),
+      emailCount("failed"),
+    ]);
+    const emailOk = !((emailFailed ?? 0) >= 3 && (emailSent ?? 0) === 0);
+
+    const ok = syncOk && emailOk;
     return NextResponse.json(
       {
         ok,
@@ -35,6 +55,8 @@ export async function GET() {
         lastSyncedAt: data?.last_synced_at ?? null,
         ageMinutes,
         staleThresholdMinutes: STALE_MINUTES,
+        sync: { ok: syncOk },
+        email: { ok: emailOk, sent7d: emailSent ?? 0, failed7d: emailFailed ?? 0 },
       },
       { status: ok ? 200 : 503 },
     );

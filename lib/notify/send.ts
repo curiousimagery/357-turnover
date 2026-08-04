@@ -14,16 +14,39 @@ export type SenderConfig = {
   appUrl: string; // for the "view the schedule" link
 };
 
+const DEFAULT_FROM = "357 Oasis Turnovers <onboarding@resend.dev>";
+
+/** A Resend-acceptable sender: `email@domain` or `Name <email@domain>`. Guards
+ *  against the failure that took email down for weeks — a NOTIFY_FROM set to a
+ *  bare domain (`mail.example.com`), which 422s every send. */
+export function isValidSender(s: string): boolean {
+  return (
+    /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(s) ||
+    /<[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+>$/.test(s.trim())
+  );
+}
+
 export function senderConfigFromEnv(): SenderConfig | null {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return null; // not configured yet — sending is a no-op
+
+  // A blank OR malformed NOTIFY_FROM (bare domain, stray quotes, truncation) would
+  // otherwise be sent verbatim and rejected by Resend (422 "Invalid `from` field"),
+  // silently breaking ALL notification email. Fall back to a valid sender and log
+  // loudly so the cause is obvious instead of a silent outage.
+  const rawFrom = process.env.NOTIFY_FROM?.trim();
+  let from = DEFAULT_FROM;
+  if (rawFrom && isValidSender(rawFrom)) {
+    from = rawFrom;
+  } else if (rawFrom) {
+    console.error(
+      `NOTIFY_FROM is malformed (${JSON.stringify(rawFrom)}) — using ${DEFAULT_FROM}. Fix the env var: it must be "Name <email@domain>".`,
+    );
+  }
+
   return {
     apiKey,
-    // Trim + fall back on blank: `??` alone doesn't catch an empty-string env var,
-    // so a cleared NOTIFY_FROM was being sent verbatim and rejected by Resend
-    // (422 "Invalid `from` field"). Use `|| default` so blank/whitespace falls
-    // back to a valid sender.
-    from: process.env.NOTIFY_FROM?.trim() || "357 Oasis Turnovers <onboarding@resend.dev>",
+    from,
     appUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://357-turnover.vercel.app")
       .trim()
       .replace(/\/$/, ""),
