@@ -170,12 +170,15 @@ export async function sendDirectTestEmail(): Promise<TestResult> {
       }),
     });
     const body = await res.text();
+    // Echo the exact `from` we sent (JSON-quoted so stray quotes / hidden chars /
+    // truncation are visible) — this is what a 422 "Invalid from field" is about.
+    const fromShown = JSON.stringify(config.from);
     if (!res.ok) {
-      return { ok: false, error: `Resend ${res.status} → ${body.slice(0, 400)}` };
+      return { ok: false, error: `Resend ${res.status} · from=${fromShown} → ${body.slice(0, 300)}` };
     }
     return {
       ok: true,
-      summary: `Accepted for ${to} · from ${config.from} · Resend said: ${body.slice(0, 200)}`,
+      summary: `Accepted for ${to} · from=${fromShown} · Resend said: ${body.slice(0, 160)}`,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Network error calling Resend." };
