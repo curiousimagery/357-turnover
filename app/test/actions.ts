@@ -132,6 +132,56 @@ export async function drainEmailsNow(): Promise<TestResult> {
   }
 }
 
+/**
+ * Diagnostic: send ONE real email straight to the signed-in admin via Resend,
+ * bypassing the outbox, and surface the RAW Resend response (status + body). The
+ * regular outbox path only marks a row `failed` and swallows the reason; this
+ * names the actual failure — a bad API key (401), an unverified/blocked
+ * from-domain (403), etc. It also skips the recipient email *lookup* (it uses the
+ * session email directly), so: success here + failures in the outbox means the
+ * problem is the lookup, not Resend.
+ */
+export async function sendDirectTestEmail(): Promise<TestResult> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate;
+  const {
+    data: { user },
+  } = await gate.supabase.auth.getUser();
+  const to = user?.email;
+  if (!to) return { ok: false, error: "Couldn't resolve your account email." };
+
+  const config = senderConfigFromEnv();
+  if (!config) {
+    return { ok: false, error: "Resend isn't configured (RESEND_API_KEY missing here)." };
+  }
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: config.from,
+        to: [to],
+        subject: "Resend delivery test — 357 Oasis Turnovers",
+        text: "If this arrives, Resend delivery is healthy.",
+      }),
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      return { ok: false, error: `Resend ${res.status} → ${body.slice(0, 400)}` };
+    }
+    return {
+      ok: true,
+      summary: `Accepted for ${to} · from ${config.from} · Resend said: ${body.slice(0, 200)}`,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Network error calling Resend." };
+  }
+}
+
 /** A YYYY-MM-DD date `daysAhead` from today in property-local time. */
 function futureDate(daysAhead: number): string {
   const [y, m, d] = todayInPropertyTz().split("-").map(Number);

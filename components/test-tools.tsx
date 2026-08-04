@@ -10,6 +10,7 @@ import { NOTIFICATION_TYPES } from "@/lib/notify/types";
 import {
   sendTestNotification,
   drainEmailsNow,
+  sendDirectTestEmail,
   simulateScenario,
   cleanupSpoofTurnovers,
 } from "@/app/test/actions";
@@ -37,6 +38,7 @@ export function TestTools({
   const [recipientId, setRecipientId] = useState(recipients[0]?.id ?? "");
   const [scenario, setScenario] = useState<Scenario>("new");
   const [scenarioCleanerId, setScenarioCleanerId] = useState(cleaners[0]?.id ?? "");
+  const [directResult, setDirectResult] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const needsCleaner = SCENARIOS.find((s) => s.value === scenario)?.needsCleaner ?? false;
@@ -56,6 +58,20 @@ export function TestTools({
         toast.success(`Emails — sent ${result.sent ?? 0}, failed ${result.failed ?? 0}`);
       } else {
         toast.error(result.error);
+      }
+    });
+  }
+
+  function directTest() {
+    startTransition(async () => {
+      setDirectResult(null);
+      const result = await sendDirectTestEmail();
+      if (result.ok) {
+        toast.success("Resend accepted it — check your inbox");
+        setDirectResult(result.summary ?? "Accepted.");
+      } else {
+        toast.error("Send failed — details below");
+        setDirectResult(result.error);
       }
     });
   }
@@ -207,6 +223,27 @@ export function TestTools({
             Send pending emails now
           </Button>
         </div>
+      </Card>
+
+      <Card className="flex flex-col gap-4 p-6">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-heading">Diagnose delivery (send one to me)</h2>
+          <p className="text-caption text-muted-foreground">
+            Sends a single email to your own address via Resend, bypassing the
+            outbox, and shows Resend&rsquo;s raw response — so a bad key or
+            from-domain names itself instead of a silent failure.
+          </p>
+        </div>
+        <div>
+          <Button size="touch" disabled={pending} onClick={directTest}>
+            Send a test email to me
+          </Button>
+        </div>
+        {directResult && (
+          <p className="whitespace-pre-wrap break-words rounded-md border border-border bg-muted p-3 text-caption text-foreground">
+            {directResult}
+          </p>
+        )}
       </Card>
     </div>
   );
