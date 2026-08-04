@@ -15,14 +15,18 @@ export type SenderConfig = {
 };
 
 export function senderConfigFromEnv(): SenderConfig | null {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return null; // not configured yet — sending is a no-op
   return {
     apiKey,
-    from: process.env.NOTIFY_FROM ?? "357 Oasis Turnovers <onboarding@resend.dev>",
-    appUrl: (
-      process.env.NEXT_PUBLIC_SITE_URL ?? "https://357-turnover.vercel.app"
-    ).replace(/\/$/, ""),
+    // Trim + fall back on blank: `??` alone doesn't catch an empty-string env var,
+    // so a cleared NOTIFY_FROM was being sent verbatim and rejected by Resend
+    // (422 "Invalid `from` field"). Use `|| default` so blank/whitespace falls
+    // back to a valid sender.
+    from: process.env.NOTIFY_FROM?.trim() || "357 Oasis Turnovers <onboarding@resend.dev>",
+    appUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://357-turnover.vercel.app")
+      .trim()
+      .replace(/\/$/, ""),
   };
 }
 
