@@ -48,18 +48,22 @@ export function LoginForm({
       if (error) throw error;
       setSent(true);
     } catch (err: unknown) {
-      console.error("sign-in error:", err);
-      const raw = err instanceof Error ? err.message?.trim() : "";
+      const raw = (err instanceof Error ? err.message?.trim() : "") ?? "";
       // shouldCreateUser:false rejects unknown emails ("Signups not allowed for
-      // otp"). Don't leak that as a scary error — this app is invite-only.
+      // otp"). Never reveal whether an address has an account (enumeration) —
+      // show the same neutral "check your email" screen as a real send. No email
+      // is actually sent for an unknown address.
       const unknownUser = /signup|not allowed|otp_disabled/i.test(raw);
-      setError(
-        unknownUser
-          ? "That email isn’t set up for this app yet. Ask Daniel to add you."
-          : raw && raw !== "{}"
+      if (unknownUser) {
+        setSent(true);
+      } else {
+        console.error("sign-in error:", err);
+        setError(
+          raw && raw !== "{}"
             ? raw
             : "We couldn't send the sign-in link — the email service may be misconfigured (check Supabase SMTP). See the browser console for details.",
-      );
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,9 +86,10 @@ export function LoginForm({
                 Check your email 📬
               </p>
               <p className="text-caption text-muted-foreground">
-                We just sent a sign-in link to {email}. Open it on this device and
-                you&apos;re in — it works once and expires shortly. (No email? Check
-                spam.)
+                If {email} has an account, a one-tap sign-in link is on its way —
+                open it on this device and you&apos;re in. It works once and expires
+                shortly. No link? Check spam, and confirm with your admin which
+                email is on your account.
               </p>
               <button
                 type="button"

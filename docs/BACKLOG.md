@@ -51,6 +51,21 @@ we only ever email addresses an admin explicitly added.
   (`notifications.recipient_id` → `profiles`, email resolved via
   `auth.admin.getUserById`), so it can't email a stranger — the sign-in form was
   the only open vector.
+- **Sign-in copy is non-enumerating:** an unknown address gets the same neutral
+  "if you have an account, a link is on its way" screen as a real send (no leak of
+  who's registered).
+
+**Supabase security-advisor warnings (2026-08-03) — triaged, none email-related:**
+- **SECURITY DEFINER RPC exposure (0028/0029):** migration `20260803000000` revokes
+  EXECUTE on the two trigger functions (`handle_new_user`,
+  `enforce_profile_update_guard`) from anon/authenticated — safe (triggers don't
+  need the grant) and clears their warnings. `is_admin()` is left as-is (RLS needs
+  `authenticated` to execute it; low-risk — returns only the caller's own admin
+  bool). **Apply on hosted.**
+- **`pg_net` extension in `public` (0014):** low priority; moving it risks the
+  pg_cron→`/api/sync` poller. Leave unless we do a schema-hygiene pass.
+- **Leaked-password protection disabled:** N/A — auth is magic-link only, no
+  passwords. Safe to ignore (or enable to silence).
 
 **Carried-over open items (unaddressed when we paused ~2026-07-05):**
 - Historical data-repair — **DONE** (Daniel ran the un-cancel SQL; past turnovers
