@@ -1,27 +1,25 @@
 "use client";
 
-import { useTransition } from "react";
+import { useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { syncNow } from "@/app/schedule/actions";
 
-/** Manual "check for new bookings now" — any signed-in user can trigger the same
- *  reconcile the hourly cron runs, so a just-made booking shows without waiting. */
-export function SyncNowButton() {
+/** Shared "run the sync now" behavior for the tappable synced-badge and
+ *  pull-to-refresh. `syncing` drives the spinner; `sync()` runs it once. */
+export function useSyncNow() {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [syncing, startTransition] = useTransition();
 
-  function run() {
+  const sync = useCallback(() => {
     startTransition(async () => {
       const result = await syncNow();
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
-      const bits = [];
+      const bits: string[] = [];
       if (result.added) bits.push(`${result.added} new`);
       if (result.changed) bits.push(`${result.changed} updated`);
       if (result.cancelled) bits.push(`${result.cancelled} cancelled`);
@@ -34,18 +32,7 @@ export function SyncNowButton() {
       );
       router.refresh();
     });
-  }
+  }, [router]);
 
-  return (
-    <Button
-      size="sm"
-      variant="ghost"
-      onClick={run}
-      disabled={pending}
-      title="Check for new bookings now"
-    >
-      <RefreshCw className={pending ? "animate-spin" : ""} />
-      <span className="hidden sm:inline">{pending ? "Syncing…" : "Sync"}</span>
-    </Button>
-  );
+  return { syncing, sync };
 }

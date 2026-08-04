@@ -8,7 +8,7 @@ import {
 } from "@/components/schedule-list";
 import { ManualTurnoverDialog } from "@/components/manual-turnover-dialog";
 import { SyncStatus } from "@/components/sync-status";
-import { SyncNowButton } from "@/components/sync-now-button";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { todayInPropertyTz } from "@/lib/dates";
@@ -120,16 +120,14 @@ export default async function SchedulePage() {
     <div className="min-h-svh">
       <SiteHeader />
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8">
-        <div className="flex flex-col gap-2">
+        <PullToRefresh>
+          <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-4">
             <h1 className="text-display">Schedule</h1>
             <div className="flex items-center gap-2">
               {isAdmin && <ManualTurnoverDialog />}
               {!error && (
-                <>
-                  <SyncStatus lastSyncedAt={syncState?.last_success_at ?? null} />
-                  <SyncNowButton />
-                </>
+                <SyncStatus lastSyncedAt={syncState?.last_success_at ?? null} />
               )}
             </div>
           </div>
@@ -157,6 +155,7 @@ export default async function SchedulePage() {
             today={today}
           />
         )}
+        </PullToRefresh>
       </main>
     </div>
   );

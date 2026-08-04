@@ -37,22 +37,28 @@ export function LoginForm({
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          // Accounts are provisioned by the admin in production; this stays
-          // permissive for setup. The link returns to /auth/confirm.
+          // Accounts are admin-provisioned (invite only). Never create a user
+          // from the sign-in form — otherwise anyone typing any address makes us
+          // send them an email, which is how a stranger's bounced signup can
+          // disrupt sending. Only existing (admin-added) users get a link.
+          shouldCreateUser: false,
           emailRedirectTo: `${window.location.origin}/auth/confirm?next=/`,
         },
       });
       if (error) throw error;
       setSent(true);
     } catch (err: unknown) {
-      // Surface the real reason: a failed auth-email send often comes back as an
-      // empty "{}" message. Log the full error and show something actionable.
       console.error("sign-in error:", err);
       const raw = err instanceof Error ? err.message?.trim() : "";
+      // shouldCreateUser:false rejects unknown emails ("Signups not allowed for
+      // otp"). Don't leak that as a scary error — this app is invite-only.
+      const unknownUser = /signup|not allowed|otp_disabled/i.test(raw);
       setError(
-        raw && raw !== "{}"
-          ? raw
-          : "We couldn't send the sign-in link — the email service may be misconfigured (check Supabase SMTP). See the browser console for details.",
+        unknownUser
+          ? "That email isn’t set up for this app yet. Ask Daniel to add you."
+          : raw && raw !== "{}"
+            ? raw
+            : "We couldn't send the sign-in link — the email service may be misconfigured (check Supabase SMTP). See the browser console for details.",
       );
     } finally {
       setIsLoading(false);

@@ -18,21 +18,39 @@ App in real daily use ~1 month; core works. **This is the durable open-items lis
   payment controls (gated on `status='completed'`) vanished until they re-completed
   it. Fix: the upsert no longer writes `status` (new rows get the column default;
   existing rows keep their workflow status). Regression test added.
-- **Manual "Sync now" button** (`components/sync-now-button.tsx`, `syncNow` action)
-  — any signed-in user runs the same reconcile the cron does + drains queued email,
-  so a just-made booking shows without waiting for the hourly cron.
+- **Manual sync from the app.** Tap the "synced N ago" badge to run the sync now
+  (spinner in place), plus pull-to-refresh on the schedule (touch). Shared
+  `syncNow` action + `useSyncNow` hook; runs the same reconcile the cron does and
+  drains queued email, so a just-made booking shows without waiting for the cron.
+- **Closed the unauthenticated-email vector** (see below): sign-in is now
+  invite-only (`shouldCreateUser: false`).
 
-**OPEN — email delivery is down (all notifications, ~since the iCloud migration).**
-No app code changed since 2026-07-05, so it's environmental. Prime suspect: the
-iCloud+ email migration on `curiousimagery.com` changed/replaced DNS and
-un-verified the Resend sending domain `mail.curiousimagery.com` (SPF/DKIM), so
-Resend rejects every send (that's why even Daniel's own gmail gets nothing).
-Diagnose: Resend → Domains → is `mail.curiousimagery.com` still **Verified**?
-Resend → Logs for rejected sends. In SQL: `select status, count(*) from
-notifications where channel='email' group by status;` (a pile of recent `failed` =
-send-side). Fix: re-add Resend's DNS records — **merge, don't replace** the single
-SPF TXT — then re-verify. The same DNS event also broke iCloud→Gmail forwarding
-(separate personal config, not app code).
+**OPEN — email delivery is down (all notifications, ~21 days). NOT DNS.** Resend
+shows `mail.curiousimagery.com` **Verified** and DNS is confirmed clean (iCloud
+records at the root, Resend on the `mail.` subdomain, untouched). Real root cause:
+a stranger (`heroresplate@gmail.com`) found the public login and entered their
+address; the sign-in used `shouldCreateUser` default **true**, so Supabase asked
+Resend to send them a signup/confirmation email — it **bounced**, which likely
+disrupted the Supabase SMTP / Resend sending config or tripped an account-level
+sending suspension. Daniel's dashboard checks (can't be done from code):
+- Supabase → Authentication → SMTP: confirm the Resend creds are still valid/active.
+- Resend → Logs: recent send attempts + failure reasons.
+- Resend account: verify the bounce didn't trigger a sending suspension/hold.
+Diagnostic SQL: `select status, count(*) from notifications where channel='email'
+group by status;` (a pile of recent `failed` = send-side).
+
+**Email security — no unauthenticated outbound email (architectural).** Principle:
+we only ever email addresses an admin explicitly added.
+- **DONE:** the sign-in form now passes `shouldCreateUser: false`, so an unknown
+  address can never make the app send mail (it shows "ask Daniel to add you"
+  instead). Cleaners are created via `inviteUserByEmail` (they already exist), so
+  this doesn't affect onboarding.
+- **Belt-and-suspenders (dashboard, Daniel):** Supabase → Authentication → disable
+  "Allow new users to sign up" so signups are blocked at the platform level too.
+- The notification outbox already targets only existing users
+  (`notifications.recipient_id` → `profiles`, email resolved via
+  `auth.admin.getUserById`), so it can't email a stranger — the sign-in form was
+  the only open vector.
 
 **Carried-over open items (unaddressed when we paused ~2026-07-05):**
 - Historical data-repair — **DONE** (Daniel ran the un-cancel SQL; past turnovers
